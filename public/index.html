@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SolSnipe — Copy Trading Dashboard</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg0:#0d0d0f;--bg1:#131316;--bg2:#1a1a1f;--bg3:#222228;
+  --border:#2e2e38;--border2:#3a3a48;
+  --text1:#f0f0f5;--text2:#a0a0b0;--text3:#606070;
+  --green:#00e87a;--green2:#00b85f;--green-bg:rgba(0,232,122,0.08);
+  --red:#ff4d4d;--red-bg:rgba(255,77,77,0.08);
+  --amber:#f5a623;
+}
+.light{
+  --bg0:#f0f0f5;--bg1:#ffffff;--bg2:#f7f7fb;--bg3:#ececf3;
+  --border:#d8d8e8;--border2:#c0c0d8;
+  --text1:#0d0d1a;--text2:#555570;--text3:#9090a8;
+  --green:#009950;--green2:#007a3e;--green-bg:rgba(0,153,80,0.08);
+  --red:#cc2222;--red-bg:rgba(204,34,34,0.08);
+  --amber:#b87000;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg0);color:var(--text1);transition:background 0.2s,color 0.2s;min-height:100vh;}
+.dash{display:flex;flex-direction:column;min-height:100vh;}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--bg1);border-bottom:1.5px solid var(--border2);position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.logo{font-size:16px;font-weight:500;letter-spacing:-0.5px;color:var(--text1);}
+.logo em{color:var(--green);font-style:normal;}
+.status-pill{display:flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:20px;background:var(--green-bg);color:var(--green);border:1px solid rgba(0,232,122,0.2);}
+.status-pill.offline{background:var(--red-bg);color:var(--red);border-color:rgba(255,77,77,0.2);}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.topbar-right{display:flex;align-items:center;gap:8px;}
+.wallet-chip{font-size:11px;color:var(--text2);font-family:monospace;background:var(--bg3);padding:5px 12px;border-radius:6px;border:1px solid var(--border);}
+.sol-balance{font-size:12px;color:var(--green);font-weight:500;padding:4px 10px;background:var(--green-bg);border-radius:6px;border:1px solid rgba(0,232,122,0.2);}
+.icon-btn{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:15px;line-height:1;color:var(--text1);}
+.icon-btn:hover{border-color:var(--border2);}
+.pause-btn{background:var(--amber);color:#000;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:500;cursor:pointer;}
+.pause-btn.paused{background:var(--green);}
+
+/* LAYOUT */
+.main{display:grid;grid-template-columns:290px 1fr;flex:1;}
+
+/* SIDEBAR */
+.sidebar{background:var(--bg1);border-right:1.5px solid var(--border2);display:flex;flex-direction:column;}
+.sidebar-block{padding:16px;}
+.sidebar-block+.sidebar-block{border-top:1.5px solid var(--border2);}
+.block-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.block-title{font-size:10px;font-weight:500;letter-spacing:0.8px;text-transform:uppercase;color:var(--text3);}
+.block-badge{font-size:10px;color:var(--text3);background:var(--bg3);padding:1px 7px;border-radius:10px;border:1px solid var(--border);}
+
+.add-row{display:flex;gap:6px;margin-bottom:12px;}
+.add-row input{flex:1;font-size:11px;font-family:monospace;padding:7px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);outline:none;}
+.add-row input:focus{border-color:var(--green);}
+.add-row input::placeholder{color:var(--text3);}
+.btn-green{background:var(--green);color:#000;border:none;border-radius:6px;padding:7px 12px;font-size:12px;font-weight:500;cursor:pointer;}
+.btn-green:hover{background:var(--green2);}
+
+.wallet-list{display:flex;flex-direction:column;gap:6px;}
+.wallet-card{background:var(--bg2);border-radius:8px;border:1px solid var(--border);padding:10px 12px;transition:border-color 0.15s;}
+.wallet-card:hover{border-color:var(--border2);}
+.wc-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;}
+.wc-name{font-size:13px;font-weight:500;color:var(--text1);}
+.wc-actions{display:flex;align-items:center;gap:6px;}
+.del-btn{font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 4px;}
+.del-btn:hover{color:var(--red);}
+.wc-addr{font-size:10px;color:var(--text3);font-family:monospace;margin-bottom:7px;}
+.wc-stats{display:flex;gap:14px;}
+.ws-stat{font-size:11px;color:var(--text3);}
+.ws-stat b{font-weight:500;color:var(--text2);}
+.ws-stat.g b{color:var(--green);}
+.ws-stat.r b{color:var(--red);}
+.empty-wallets{font-size:12px;color:var(--text3);text-align:center;padding:16px 0;}
+
+.toggle{position:relative;width:30px;height:17px;flex-shrink:0;}
+.toggle input{opacity:0;width:0;height:0;}
+.tslider{position:absolute;inset:0;border-radius:9px;background:var(--border2);cursor:pointer;transition:0.2s;}
+.tslider:before{content:'';position:absolute;width:11px;height:11px;left:3px;top:3px;border-radius:50%;background:var(--text3);transition:0.2s;}
+input:checked+.tslider{background:var(--green);}
+input:checked+.tslider:before{transform:translateX(13px);background:#000;}
+
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.fi label{font-size:10px;color:var(--text3);display:block;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;}
+.fi input{width:100%;font-size:12px;padding:6px 9px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text1);outline:none;}
+.fi input:focus{border-color:var(--green);}
+.fi.full{grid-column:span 2;}
+.fi-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--text2);padding:2px 0;}
+.save-btn{margin-top:10px;width:100%;padding:8px;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;font-size:12px;cursor:pointer;color:var(--text2);}
+.save-btn:hover{border-color:var(--green);color:var(--green);}
+
+/* CONTENT */
+.content{display:flex;flex-direction:column;background:var(--bg0);}
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg1);border-bottom:1.5px solid var(--border2);}
+.stat-box{padding:16px 18px;border-right:1px solid var(--border);}
+.stat-box:last-child{border-right:none;}
+.stat-lbl{font-size:10px;letter-spacing:0.6px;text-transform:uppercase;color:var(--text3);margin-bottom:5px;}
+.stat-num{font-size:22px;font-weight:500;color:var(--text1);line-height:1;}
+.stat-num.g{color:var(--green);}
+.stat-num.r{color:var(--red);}
+.stat-sub{font-size:10px;color:var(--text3);margin-top:4px;}
+
+.feed-wrap{padding:16px;display:flex;flex-direction:column;gap:10px;}
+.feed-hdr{display:flex;align-items:center;justify-content:space-between;}
+.feed-title{font-size:12px;font-weight:500;color:var(--text1);display:flex;align-items:center;gap:7px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--red);animation:pulse 1.2s infinite;}
+.tabs{display:flex;gap:3px;}
+.tab{font-size:11px;padding:3px 11px;border-radius:20px;border:1px solid var(--border);background:transparent;cursor:pointer;color:var(--text3);}
+.tab:hover{color:var(--text2);}
+.tab.on{background:var(--bg3);color:var(--text1);border-color:var(--border2);}
+
+.trade-list{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto;}
+.trade-row{background:var(--bg1);border-radius:8px;border:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;}
+.ttype{font-size:10px;font-weight:500;padding:3px 9px;border-radius:4px;min-width:34px;text-align:center;}
+.ttype.b{background:var(--green-bg);color:var(--green);border:1px solid rgba(0,232,122,0.2);}
+.ttype.s{background:var(--red-bg);color:var(--red);border:1px solid rgba(255,77,77,0.2);}
+.ttoken{font-size:13px;font-weight:500;color:var(--text1);min-width:70px;}
+.tdetail{flex:1;}
+.tdetail-main{font-size:12px;color:var(--text2);}
+.tdetail-from{font-size:10px;color:var(--text3);font-family:monospace;}
+.tamount{font-size:13px;font-weight:500;min-width:70px;text-align:right;}
+.tamount.g{color:var(--green);}
+.tamount.r{color:var(--red);}
+.tamount.p{color:var(--amber);}
+.tamount.sk{color:var(--text3);}
+.ttime{font-size:10px;color:var(--text3);min-width:50px;text-align:right;}
+.tstatus{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.tstatus.c{background:var(--green);}
+.tstatus.p{background:var(--amber);}
+.tstatus.sk{background:var(--border2);}
+.empty-feed{font-size:12px;color:var(--text3);text-align:center;padding:32px 0;}
+
+.section-divider{display:flex;align-items:center;gap:10px;padding:0 16px;margin:4px 0;}
+.div-line{flex:1;height:1px;background:var(--border);}
+.div-label{font-size:10px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;}
+
+.pnl-wrap{padding:0 16px 16px;}
+.pnl-card{background:var(--bg1);border:1px solid var(--border2);border-radius:10px;overflow:hidden;}
+.pnl-hdr{padding:11px 16px;border-bottom:1.5px solid var(--border2);display:flex;align-items:center;justify-content:space-between;}
+.pnl-hdrtitle{font-size:12px;font-weight:500;color:var(--text1);}
+.pnl-table{width:100%;font-size:12px;border-collapse:collapse;}
+.pnl-table th{padding:7px 16px;text-align:left;font-size:10px;color:var(--text3);font-weight:400;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:0.5px;}
+.pnl-table td{padding:9px 16px;border-bottom:1px solid var(--border);color:var(--text2);}
+.pnl-table tr:last-child td{border-bottom:none;}
+.pnl-table td:first-child{color:var(--text1);font-weight:500;}
+.g{color:var(--green)!important;}
+.r{color:var(--red)!important;}
+.tag{font-size:9px;padding:1px 6px;border-radius:4px;background:var(--bg3);color:var(--text3);border:1px solid var(--border);margin-left:4px;}
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text1);z-index:999;display:none;box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+</style>
+</head>
+<body>
+<div class="dash" id="dash">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo">sol<em>snipe</em></div>
+      <div class="status-pill offline" id="statusPill"><div class="dot"></div> <span id="statusText">Connecting...</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="sol-balance" id="solBalance">— SOL</div>
+      <div class="wallet-chip" id="walletChip">wallet not set</div>
+      <button class="icon-btn" id="modeBtn" onclick="toggleMode()">🌙</button>
+      <button class="pause-btn" id="pauseBtn" onclick="toggleBot()">⏸ Pause</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <div class="sidebar-block">
+        <div class="block-header">
+          <span class="block-title">Target wallets</span>
+          <span class="block-badge" id="walletCount">0 wallets</span>
+        </div>
+        <div class="add-row">
+          <input id="walletInput" type="text" placeholder="Paste Solana wallet address..." />
+          <button class="btn-green" onclick="addWallet()">+ Add</button>
+        </div>
+        <div class="wallet-list" id="walletList">
+          <div class="empty-wallets">No wallets yet — add one above</div>
+        </div>
+      </div>
+
+      <div class="sidebar-block">
+        <div class="block-header"><span class="block-title">Copy filters</span></div>
+        <div class="fg">
+          <div class="fi"><label>Min trade (SOL)</label><input type="number" id="s_min_trade" value="0.1" step="0.05"/></div>
+          <div class="fi"><label>Max trade (SOL)</label><input type="number" id="s_max_trade" value="5"/></div>
+          <div class="fi"><label>Copy amount (SOL)</label><input type="number" id="s_copy_amount" value="0.25" step="0.05"/></div>
+          <div class="fi"><label>Slippage %</label><input type="number" id="s_slippage" value="15"/></div>
+          <div class="fi full"><label>Min token age (seconds)</label><input type="number" id="s_token_age" value="30"/></div>
+          <div class="fi full"><div class="fi-row"><span>Skip sells</span><label class="toggle"><input type="checkbox" id="s_skip_sells"><span class="tslider"></span></label></div></div>
+          <div class="fi full"><div class="fi-row"><span>Auto-sell on 2×</span><label class="toggle"><input type="checkbox" id="s_auto_sell" checked><span class="tslider"></span></label></div></div>
+        </div>
+        <button class="save-btn" onclick="saveSettings()">Save filters →</button>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="stats-row">
+        <div class="stat-box">
+          <div class="stat-lbl">Total PnL</div>
+          <div class="stat-num g" id="stat-pnl">$0.00</div>
+          <div class="stat-sub">All time</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Trades copied</div>
+          <div class="stat-num" id="stat-trades">0</div>
+          <div class="stat-sub" id="stat-trades-sub">No trades yet</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Win rate</div>
+          <div class="stat-num" id="stat-winrate">—</div>
+          <div class="stat-sub" id="stat-winrate-sub">0W · 0L</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-lbl">Active wallets</div>
+          <div class="stat-num" id="stat-wallets">0</div>
+          <div class="stat-sub">Monitoring live</div>
+        </div>
+      </div>
+
+      <div class="feed-wrap">
+        <div class="feed-hdr">
+          <div class="feed-title">
+            <div class="live-dot"></div>
+            <span style="font-size:10px;color:var(--red);letter-spacing:0.5px;">LIVE</span>
+            Trade feed
+          </div>
+          <div class="tabs">
+            <button class="tab on" onclick="filterFeed('all',this)">All</button>
+            <button class="tab" onclick="filterFeed('copied',this)">Copied</button>
+            <button class="tab" onclick="filterFeed('skipped',this)">Skipped</button>
+          </div>
+        </div>
+        <div class="trade-list" id="tradeList">
+          <div class="empty-feed">Waiting for trades... Add wallets and the bot will start copying.</div>
+        </div>
+      </div>
+
+      <div class="section-divider">
+        <div class="div-line"></div>
+        <span class="div-label">PnL breakdown</span>
+        <div class="div-line"></div>
+      </div>
+
+      <div class="pnl-wrap">
+        <div class="pnl-card">
+          <div class="pnl-hdr">
+            <div class="pnl-hdrtitle">Recent trades</div>
+          </div>
+          <table class="pnl-table">
+            <thead><tr><th>Token</th><th>Source</th><th>Type</th><th>Amount</th><th>PnL</th><th>Status</th></tr></thead>
+            <tbody id="pnlBody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No trades yet</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── CONFIG ─────────────────────────────────────────────────
+const API = window.location.origin + '/api';
+const WS_URL = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws';
+
+// ─── STATE ──────────────────────────────────────────────────
+let isLight = false;
+let botActive = true;
+let allTrades = [];
+let currentFilter = 'all';
+let ws;
+
+// ─── INIT ────────────────────────────────────────────────────
+async function init() {
+  await loadWallets();
+  await loadSettings();
+  await loadPnL();
+  await loadTrades();
+  await loadStatus();
+  connectWebSocket();
+  setInterval(loadStatus, 10000);
+}
+
+// ─── WEBSOCKET ───────────────────────────────────────────────
+function connectWebSocket() {
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    setStatus(true);
+  };
+
+  ws.onclose = () => {
+    setStatus(false);
+    setTimeout(connectWebSocket, 3000);
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    handleLiveUpdate(msg);
+  };
+}
+
+function handleLiveUpdate(msg) {
+  if (msg.type === 'status') {
+    setStatus(msg.connected);
+  } else if (msg.type === 'trade_copied' || msg.type === 'trade_skipped' || msg.type === 'trade_executing') {
+    // Refresh trades and PnL after a short delay
+    setTimeout(() => { loadTrades(); loadPnL(); }, 1000);
+    showToast(msg.type === 'trade_copied'
+      ? `✅ Copied ${msg.tradeType?.toUpperCase()} — ${msg.tokenSymbol || 'token'}`
+      : msg.type === 'trade_skipped'
+      ? `⏭ Skipped — ${msg.reason || ''}`
+      : `⏳ Executing copy trade...`
+    );
+  } else if (msg.type === 'trade_error') {
+    showToast(`❌ Trade failed: ${msg.error}`);
+  }
+}
+
+// ─── API CALLS ───────────────────────────────────────────────
+async function loadWallets() {
+  const wallets = await fetch(API + '/wallets').then(r => r.json()).catch(() => []);
+  renderWallets(wallets);
+}
+
+async function addWallet() {
+  const input = document.getElementById('walletInput');
+  const address = input.value.trim();
+  if (!address || address.length < 32) { showToast('❌ Invalid address'); return; }
+
+  const res = await fetch(API + '/wallets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ address, label: 'Wallet' })
+  });
+  if (res.ok) {
+    input.value = '';
+    await loadWallets();
+    await loadStatus();
+    showToast('✅ Wallet added');
+  } else {
+    const err = await res.json();
+    showToast('❌ ' + (err.error || 'Error adding wallet'));
+  }
+}
+
+async function deleteWallet(id) {
+  await fetch(API + '/wallets/' + id, { method: 'DELETE' });
+  await loadWallets();
+  await loadStatus();
+  showToast('🗑 Wallet removed');
+}
+
+async function toggleWallet(id, enabled) {
+  await fetch(API + '/wallets/' + id, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled })
+  });
+  await loadStatus();
+}
+
+async function loadSettings() {
+  const settings = await fetch(API + '/settings').then(r => r.json()).catch(() => ({}));
+  if (settings.min_trade_sol) document.getElementById('s_min_trade').value = settings.min_trade_sol;
+  if (settings.max_trade_sol) document.getElementById('s_max_trade').value = settings.max_trade_sol;
+  if (settings.copy_amount_sol) document.getElementById('s_copy_amount').value = settings.copy_amount_sol;
+  if (settings.slippage_bps) document.getElementById('s_slippage').value = (parseInt(settings.slippage_bps) / 100).toFixed(0);
+  if (settings.min_token_age_seconds) document.getElementById('s_token_age').value = settings.min_token_age_seconds;
+  document.getElementById('s_skip_sells').checked = settings.skip_sells === '1';
+  document.getElementById('s_auto_sell').checked = settings.auto_sell_multiplier !== '0';
+  botActive = settings.bot_active === '1';
+  updatePauseBtn();
+}
+
+async function saveSettings() {
+  await fetch(API + '/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      min_trade_sol: document.getElementById('s_min_trade').value,
+      max_trade_sol: document.getElementById('s_max_trade').value,
+      copy_amount_sol: document.getElementById('s_copy_amount').value,
+      slippage_bps: (parseFloat(document.getElementById('s_slippage').value) * 100).toFixed(0),
+      min_token_age_seconds: document.getElementById('s_token_age').value,
+      skip_sells: document.getElementById('s_skip_sells').checked ? '1' : '0',
+      auto_sell_multiplier: document.getElementById('s_auto_sell').checked ? '2' : '0'
+    })
+  });
+  showToast('✅ Filters saved');
+}
+
+async function loadTrades() {
+  const trades = await fetch(API + '/trades?limit=30').then(r => r.json()).catch(() => []);
+  allTrades = trades;
+  renderTrades();
+}
+
+async function loadPnL() {
+  const data = await fetch(API + '/pnl').then(r => r.json()).catch(() => null);
+  if (!data) return;
+  const s = data.summary;
+
+  const pnl = parseFloat(s.total_pnl_usd) || 0;
+  document.getElementById('stat-pnl').textContent = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2);
+  document.getElementById('stat-pnl').className = 'stat-num ' + (pnl >= 0 ? 'g' : 'r');
+  document.getElementById('stat-trades').textContent = s.copied || 0;
+
+  const total = (s.wins || 0) + (s.losses || 0);
+  const wr = total > 0 ? Math.round((s.wins / total) * 100) : 0;
+  document.getElementById('stat-winrate').textContent = total > 0 ? wr + '%' : '—';
+  document.getElementById('stat-winrate-sub').textContent = `${s.wins || 0}W · ${s.losses || 0}L`;
+
+  // PnL table
+  const tbody = document.getElementById('pnlBody');
+  if (!data.byToken || data.byToken.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No trades yet</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.byToken.map(t => `
+    <tr>
+      <td>${t.token_symbol || t.token_mint?.slice(0,8) || '?'}</td>
+      <td style="font-family:monospace;font-size:10px;">${t.source_wallet?.slice(0,8)}...</td>
+      <td><span class="ttype ${t.type === 'buy' ? 'b' : 's'}" style="display:inline-block;">${t.type?.toUpperCase()}</span></td>
+      <td>${t.amount_sol ? t.amount_sol + ' SOL' : '—'}</td>
+      <td class="${t.pnl_usd > 0 ? 'g' : t.pnl_usd < 0 ? 'r' : ''}">${t.pnl_usd ? (t.pnl_usd > 0 ? '+' : '') + '$' + parseFloat(t.pnl_usd).toFixed(2) : '—'}</td>
+      <td>${statusBadge(t.status)}</td>
+    </tr>`).join('');
+}
+
+async function loadStatus() {
+  const s = await fetch(API + '/status').then(r => r.json()).catch(() => null);
+  if (!s) return;
+  document.getElementById('stat-wallets').textContent = s.active_wallets || 0;
+  document.getElementById('solBalance').textContent = (s.balance_sol || 0).toFixed(3) + ' SOL';
+  setStatus(s.helius_connected);
+}
+
+// ─── RENDER ──────────────────────────────────────────────────
+function renderWallets(wallets) {
+  const list = document.getElementById('walletList');
+  document.getElementById('walletCount').textContent = wallets.length + ' wallet' + (wallets.length !== 1 ? 's' : '');
+
+  if (wallets.length === 0) {
+    list.innerHTML = '<div class="empty-wallets">No wallets yet — add one above</div>';
+    return;
+  }
+
+  list.innerHTML = wallets.map(w => `
+    <div class="wallet-card" id="wcard-${w.id}">
+      <div class="wc-top">
+        <div class="wc-name">${w.label || 'Wallet'}</div>
+        <div class="wc-actions">
+          <button class="del-btn" onclick="deleteWallet(${w.id})">✕</button>
+          <label class="toggle">
+            <input type="checkbox" ${w.enabled ? 'checked' : ''} onchange="toggleWallet(${w.id}, this.checked)">
+            <span class="tslider"></span>
+          </label>
+        </div>
+      </div>
+      <div class="wc-addr">${w.address}</div>
+      <div class="wc-stats">
+        <div class="ws-stat">Added <b>${timeAgo(w.created_at)}</b></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderTrades() {
+  const list = document.getElementById('tradeList');
+  let trades = allTrades;
+
+  if (currentFilter === 'copied') trades = trades.filter(t => t.status === 'confirmed');
+  if (currentFilter === 'skipped') trades = trades.filter(t => t.status === 'skipped');
+
+  if (trades.length === 0) {
+    list.innerHTML = '<div class="empty-feed">No trades yet — waiting for activity...</div>';
+    return;
+  }
+
+  list.innerHTML = trades.map(t => `
+    <div class="trade-row">
+      <div class="tstatus ${t.status === 'confirmed' ? 'c' : t.status === 'pending' ? 'p' : 'sk'}"></div>
+      <div class="ttype ${t.type === 'buy' ? 'b' : 's'}">${t.type?.toUpperCase()}</div>
+      <div class="ttoken">${t.token_symbol || t.token_mint?.slice(0,8) || '?'}</div>
+      <div class="tdetail">
+        <div class="tdetail-main">${t.amount_sol ? t.amount_sol + ' SOL' : t.status}</div>
+        <div class="tdetail-from">${t.source_wallet?.slice(0,8)}...${t.source_wallet?.slice(-4)}</div>
+      </div>
+      <div class="tamount ${t.pnl_usd > 0 ? 'g' : t.pnl_usd < 0 ? 'r' : t.status === 'pending' ? 'p' : 'sk'}">
+        ${t.pnl_usd ? (t.pnl_usd > 0 ? '+' : '') + '$' + parseFloat(t.pnl_usd).toFixed(2) : t.status}
+      </div>
+      <div class="ttime">${timeAgo(t.created_at)}</div>
+    </div>`).join('');
+}
+
+function statusBadge(s) {
+  if (s === 'confirmed') return '<span style="color:var(--green)">✓ copied</span>';
+  if (s === 'skipped') return '<span style="color:var(--text3)">skipped</span>';
+  if (s === 'pending') return '<span style="color:var(--amber)">pending</span>';
+  return s || '—';
+}
+
+// ─── UI HELPERS ──────────────────────────────────────────────
+function setStatus(connected) {
+  const pill = document.getElementById('statusPill');
+  const txt = document.getElementById('statusText');
+  pill.className = 'status-pill' + (connected ? '' : ' offline');
+  txt.textContent = connected ? 'Helius · connected' : 'Disconnected';
+}
+
+function toggleMode() {
+  isLight = !isLight;
+  document.getElementById('dash').className = isLight ? 'dash light' : 'dash';
+  document.getElementById('modeBtn').textContent = isLight ? '🌙' : '☀️';
+}
+
+async function toggleBot() {
+  botActive = !botActive;
+  await fetch(API + '/settings', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bot_active: botActive ? '1' : '0' })
+  });
+  updatePauseBtn();
+  showToast(botActive ? '▶️ Bot resumed' : '⏸ Bot paused');
+}
+
+function updatePauseBtn() {
+  const btn = document.getElementById('pauseBtn');
+  btn.textContent = botActive ? '⏸ Pause' : '▶ Resume';
+  btn.className = 'pause-btn' + (botActive ? '' : ' paused');
+}
+
+function filterFeed(filter, el) {
+  currentFilter = filter;
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('on'));
+  el.classList.add('on');
+  renderTrades();
+}
+
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const diff = Math.floor(Date.now() / 1000) - ts;
+  if (diff < 60) return diff + 's ago';
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 3000);
+}
+
+// Enter key on wallet input
+document.getElementById('walletInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addWallet();
+});
+
+init();
+</script>
+</body>
+</html>
