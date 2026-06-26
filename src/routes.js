@@ -1,9 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('./db');
-const { getWalletBalance } = require('./trader');
-
-// ─── WALLETS ───────────────────────────────────────────────
+const trader = require('./trader');
 
 router.get('/wallets', async (req, res) => {
   const wallets = await db.all_p('SELECT * FROM wallets ORDER BY created_at DESC');
@@ -41,8 +39,6 @@ router.delete('/wallets/:id', async (req, res) => {
   res.json({ success: true });
 });
 
-// ─── TRADES ────────────────────────────────────────────────
-
 router.get('/trades', async (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
   const trades = await db.all_p('SELECT * FROM trades ORDER BY created_at DESC LIMIT ?', [limit]);
@@ -65,8 +61,6 @@ router.get('/pnl', async (req, res) => {
   res.json({ summary, byToken });
 });
 
-// ─── SETTINGS ──────────────────────────────────────────────
-
 router.get('/settings', async (req, res) => {
   const rows = await db.all_p('SELECT key, value FROM settings');
   res.json(Object.fromEntries(rows.map(r => [r.key, r.value])));
@@ -79,12 +73,10 @@ router.post('/settings', async (req, res) => {
   res.json({ success: true });
 });
 
-// ─── STATUS ────────────────────────────────────────────────
-
 router.get('/status', async (req, res) => {
   const rows = await db.all_p('SELECT key, value FROM settings');
   const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
-  const balance = await getWalletBalance();
+  const balance = await trader.getWalletBalance();
   const walletCount = await db.get_p('SELECT COUNT(*) as c FROM wallets WHERE enabled = 1');
   res.json({
     bot_active: settings.bot_active === '1',
