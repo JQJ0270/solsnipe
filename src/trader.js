@@ -157,4 +157,4 @@ class Trader {
   }
 }
 
-module.exports = Trader;
+module.exports = { executeCopyTrade, getWalletBalance, getKeypair };
