@@ -1,139 +1,51 @@
 require('dotenv').config();
-const express   = require('express');
-const cors      = require('cors');
+const express = require('express');
+const http = require('http');
 const WebSocket = require('ws');
-const path      = require('path');
+const cors = require('cors');
+const path = require('path');
 
+const routes = require('./routes');
 const WalletMonitor = require('./monitor');
-const Trader        = require('./trader');
-const CopyEngine    = require('./copyEngine');
 
-const app  = express();
-const PORT = process.env.PORT || 3001;
+const app = express();
+const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// ── WebSocket server for dashboard real-time updates ──────
-const wss = new WebSocket.Server({ noServer: true });
+const wss = new WebSocket.Server({ server, path: '/ws' });
 const dashboardClients = new Set();
 
 wss.on('connection', (ws) => {
+  console.log('[WS] Dashboard client connected');
   dashboardClients.add(ws);
-  console.log('[Server] Dashboard connected. Clients:', dashboardClients.size);
-  ws.on('close', () => dashboardClients.delete(ws));
+  ws.on('close', () => { dashboardClients.delete(ws); });
 });
 
-function broadcastToDashboard(type, data) {
-  const msg = JSON.stringify({ type, data, timestamp: Date.now() });
+function broadcast(data) {
+  const msg = JSON.stringify(data);
   for (const client of dashboardClients) {
     if (client.readyState === WebSocket.OPEN) client.send(msg);
   }
 }
 
-// ── Init core modules ──────────────────────────────────────
-let trader      = null;
-let monitor     = null;
-let copyEngine  = null;
+const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
+setInterval(() => { fetch(`${SELF_URL}/api/status`).catch(() => {}); }, 5 * 60 * 1000);
 
-function initBot() {
-  const { HELIUS_RPC_URL, HELIUS_WS_URL, WALLET_PRIVATE_KEY } = process.env;
+const monitor = new WalletMonitor(broadcast);
+app.locals.monitor = monitor;
 
-  if (!HELIUS_RPC_URL || !WALLET_PRIVATE_KEY || WALLET_PRIVATE_KEY === 'your_base58_private_key_here') {
-    console.log('[Server] Wallet not configured yet — running in preview mode');
-    return;
-  }
-
-  try {
-    trader     = new Trader(HELIUS_RPC_URL, WALLET_PRIVATE_KEY);
-    copyEngine = new CopyEngine(trader, broadcastToDashboard);
-    monitor    = new WalletMonitor(HELIUS_WS_URL, (event) => copyEngine.handleDetectedTrade(event));
-    monitor.connect();
-    console.log('[Server] Bot engine started');
-  } catch (err) {
-    console.error('[Server] Failed to start bot:', err.message);
-  }
+if (!process.env.HELIUS_API_KEY || process.env.HELIUS_API_KEY === 'your_helius_api_key_here') {
+  console.warn('[⚠️] HELIUS_API_KEY not set');
+} else {
+  monitor.connect();
 }
 
-// ── REST API ───────────────────────────────────────────────
+app.use('/api', routes);
+app.get('*', (req, res) => { res.sendFile(path.join(__dirname, '../public/index.html')); });
 
-// Status
-app.get('/api/status', (req, res) => {
-  res.json({
-    botReady:    !!trader,
-    connected:   monitor?.getStatus()?.connected || false,
-    walletPubkey: trader?.publicKey || null,
-    uptime:      process.uptime()
-  });
-});
-
-// Wallets
-app.get('/api/wallets', (req, res) => {
-  res.json(monitor?.getStatus()?.wallets || []);
-});
-
-app.post('/api/wallets', (req, res) => {
-  const { address, name } = req.body;
-  if (!address || address.length < 32) return res.status(400).json({ error: 'Invalid address' });
-  monitor?.addWallet(address, { name });
-  res.json({ success: true, address });
-});
-
-app.delete('/api/wallets/:address', (req, res) => {
-  monitor?.removeWallet(req.params.address);
-  res.json({ success: true });
-});
-
-app.patch('/api/wallets/:address', (req, res) => {
-  const { enabled } = req.body;
-  monitor?.setEnabled(req.params.address, enabled);
-  res.json({ success: true });
-});
-
-// Filters
-app.get('/api/filters', (req, res) => {
-  res.json(copyEngine?.getFilters() || {});
-});
-
-app.post('/api/filters', (req, res) => {
-  copyEngine?.setFilters(req.body);
-  res.json({ success: true, filters: copyEngine?.getFilters() });
-});
-
-// Trade log
-app.get('/api/trades', (req, res) => {
-  res.json(copyEngine?.getTradeLog() || []);
-});
-
-// Positions
-app.get('/api/positions', (req, res) => {
-  res.json(copyEngine?.getPositions() || []);
-});
-
-// Balance
-app.get('/api/balance', async (req, res) => {
-  if (!trader) return res.json({ sol: 0 });
-  const sol = await trader.getSOLBalance();
-  res.json({ sol });
-});
-
-// Configure wallet (called from dashboard setup)
-app.post('/api/configure', (req, res) => {
-  // In production, write to .env securely
-  // For now just reinit
-  res.json({ success: true, message: 'Set WALLET_PRIVATE_KEY in your .env file and restart' });
-});
-
-// ── Start server ──────────────────────────────────────────
-const server = app.listen(PORT, () => {
-  console.log(`[Server] SolSnipe running on http://localhost:${PORT}`);
-  initBot();
-});
-
-// Upgrade HTTP to WebSocket
-server.on('upgrade', (req, socket, head) => {
-  if (req.url === '/ws') {
-    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
-  }
-});
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => { console.log(`🚀 SolSnipe running on port ${PORT}`); });
+process.on('SIGTERM', () => { monitor.disconnect(); server.close(() => process.exit(0)); });
