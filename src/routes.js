@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('./db');
-const trader = require('./trader');
+const { getWalletBalance } = require('./trader');
 
 router.get('/wallets', async (req, res) => {
   const wallets = await db.all_p('SELECT * FROM wallets ORDER BY created_at DESC');
@@ -76,7 +76,7 @@ router.post('/settings', async (req, res) => {
 router.get('/status', async (req, res) => {
   const rows = await db.all_p('SELECT key, value FROM settings');
   const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
-  const balance = await trader.getWalletBalance();
+  const balance = await getWalletBalance();
   const walletCount = await db.get_p('SELECT COUNT(*) as c FROM wallets WHERE enabled = 1');
   res.json({
     bot_active: settings.bot_active === '1',
