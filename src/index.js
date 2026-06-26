@@ -1,82 +1,139 @@
 require('dotenv').config();
-const express = require('express');
-const http = require('http');
+const express   = require('express');
+const cors      = require('cors');
 const WebSocket = require('ws');
-const cors = require('cors');
-const path = require('path');
+const path      = require('path');
 
-const routes = require('./routes');
 const WalletMonitor = require('./monitor');
+const Trader        = require('./trader');
+const CopyEngine    = require('./copyEngine');
 
-const app = express();
-const server = http.createServer(app);
+const app  = express();
+const PORT = process.env.PORT || 3001;
 
-// ─── MIDDLEWARE ─────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
-// ─── WEBSOCKET SERVER (live updates to dashboard) ───────────
-const wss = new WebSocket.Server({ server, path: '/ws' });
+// ── WebSocket server for dashboard real-time updates ──────
+const wss = new WebSocket.Server({ noServer: true });
 const dashboardClients = new Set();
 
 wss.on('connection', (ws) => {
-  console.log('[WS] Dashboard client connected');
   dashboardClients.add(ws);
-
-  ws.on('close', () => {
-    dashboardClients.delete(ws);
-    console.log('[WS] Dashboard client disconnected');
-  });
+  console.log('[Server] Dashboard connected. Clients:', dashboardClients.size);
+  ws.on('close', () => dashboardClients.delete(ws));
 });
 
-// Broadcast to all connected dashboard tabs
-function broadcast(data) {
-  const msg = JSON.stringify(data);
+function broadcastToDashboard(type, data) {
+  const msg = JSON.stringify({ type, data, timestamp: Date.now() });
   for (const client of dashboardClients) {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(msg);
-    }
+    if (client.readyState === WebSocket.OPEN) client.send(msg);
   }
 }
 
-// ─── WALLET MONITOR ─────────────────────────────────────────
-const monitor = new WalletMonitor(broadcast);
-app.locals.monitor = monitor;
+// ── Init core modules ──────────────────────────────────────
+let trader      = null;
+let monitor     = null;
+let copyEngine  = null;
 
-// Validate env vars before starting monitor
-if (!process.env.HELIUS_API_KEY || process.env.HELIUS_API_KEY === 'your_helius_api_key_here') {
-  console.warn('[⚠️] HELIUS_API_KEY not set — monitor will not start');
-  console.warn('[⚠️] Set your API key in Railway environment variables');
-} else {
-  monitor.connect();
+function initBot() {
+  const { HELIUS_RPC_URL, HELIUS_WS_URL, WALLET_PRIVATE_KEY } = process.env;
+
+  if (!HELIUS_RPC_URL || !WALLET_PRIVATE_KEY || WALLET_PRIVATE_KEY === 'your_base58_private_key_here') {
+    console.log('[Server] Wallet not configured yet — running in preview mode');
+    return;
+  }
+
+  try {
+    trader     = new Trader(HELIUS_RPC_URL, WALLET_PRIVATE_KEY);
+    copyEngine = new CopyEngine(trader, broadcastToDashboard);
+    monitor    = new WalletMonitor(HELIUS_WS_URL, (event) => copyEngine.handleDetectedTrade(event));
+    monitor.connect();
+    console.log('[Server] Bot engine started');
+  } catch (err) {
+    console.error('[Server] Failed to start bot:', err.message);
+  }
 }
 
-if (!process.env.WALLET_PRIVATE_KEY || process.env.WALLET_PRIVATE_KEY === 'your_phantom_private_key_here') {
-  console.warn('[⚠️] WALLET_PRIVATE_KEY not set — copy trading will not work');
-  console.warn('[⚠️] Set your private key in Railway environment variables');
-}
+// ── REST API ───────────────────────────────────────────────
 
-// ─── API ROUTES ─────────────────────────────────────────────
-app.use('/api', routes);
-
-// Catch-all: serve dashboard
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/index.html'));
+// Status
+app.get('/api/status', (req, res) => {
+  res.json({
+    botReady:    !!trader,
+    connected:   monitor?.getStatus()?.connected || false,
+    walletPubkey: trader?.publicKey || null,
+    uptime:      process.uptime()
+  });
 });
 
-// ─── START SERVER ────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`\n🚀 SolSnipe running on port ${PORT}`);
-  console.log(`📊 Dashboard: http://localhost:${PORT}`);
-  console.log(`🔌 WebSocket: ws://localhost:${PORT}/ws`);
-  console.log(`🌐 API:       http://localhost:${PORT}/api\n`);
+// Wallets
+app.get('/api/wallets', (req, res) => {
+  res.json(monitor?.getStatus()?.wallets || []);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('[Server] Shutting down...');
-  monitor.disconnect();
-  server.close(() => process.exit(0));
+app.post('/api/wallets', (req, res) => {
+  const { address, name } = req.body;
+  if (!address || address.length < 32) return res.status(400).json({ error: 'Invalid address' });
+  monitor?.addWallet(address, { name });
+  res.json({ success: true, address });
+});
+
+app.delete('/api/wallets/:address', (req, res) => {
+  monitor?.removeWallet(req.params.address);
+  res.json({ success: true });
+});
+
+app.patch('/api/wallets/:address', (req, res) => {
+  const { enabled } = req.body;
+  monitor?.setEnabled(req.params.address, enabled);
+  res.json({ success: true });
+});
+
+// Filters
+app.get('/api/filters', (req, res) => {
+  res.json(copyEngine?.getFilters() || {});
+});
+
+app.post('/api/filters', (req, res) => {
+  copyEngine?.setFilters(req.body);
+  res.json({ success: true, filters: copyEngine?.getFilters() });
+});
+
+// Trade log
+app.get('/api/trades', (req, res) => {
+  res.json(copyEngine?.getTradeLog() || []);
+});
+
+// Positions
+app.get('/api/positions', (req, res) => {
+  res.json(copyEngine?.getPositions() || []);
+});
+
+// Balance
+app.get('/api/balance', async (req, res) => {
+  if (!trader) return res.json({ sol: 0 });
+  const sol = await trader.getSOLBalance();
+  res.json({ sol });
+});
+
+// Configure wallet (called from dashboard setup)
+app.post('/api/configure', (req, res) => {
+  // In production, write to .env securely
+  // For now just reinit
+  res.json({ success: true, message: 'Set WALLET_PRIVATE_KEY in your .env file and restart' });
+});
+
+// ── Start server ──────────────────────────────────────────
+const server = app.listen(PORT, () => {
+  console.log(`[Server] SolSnipe running on http://localhost:${PORT}`);
+  initBot();
+});
+
+// Upgrade HTTP to WebSocket
+server.on('upgrade', (req, socket, head) => {
+  if (req.url === '/ws') {
+    wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+  }
 });

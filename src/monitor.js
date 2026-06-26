@@ -4,37 +4,35 @@ const { executeCopyTrade } = require('./trader');
 
 const HELIUS_WS_URL = `wss://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
 
-// Known DEX program IDs we care about
 const JUPITER_PROGRAM = 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4';
 const RAYDIUM_PROGRAM = '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8';
 const PUMP_FUN_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
-
 const DEX_PROGRAMS = new Set([JUPITER_PROGRAM, RAYDIUM_PROGRAM, PUMP_FUN_PROGRAM]);
 
 class WalletMonitor {
   constructor(broadcast) {
     this.ws = null;
-    this.broadcast = broadcast; // function to send updates to dashboard
-    this.subscriptions = new Map(); // address -> subscriptionId
+    this.broadcast = broadcast;
+    this.subscriptions = new Map();
     this.reconnectTimer = null;
     this.pingInterval = null;
+    this.trackedWallets = [];
   }
 
-  getTrackedWallets() {
-    return db.prepare('SELECT address FROM wallets WHERE enabled = 1').all().map(r => r.address);
+  async loadWallets() {
+    const rows = await db.all_p('SELECT address FROM wallets WHERE enabled = 1');
+    this.trackedWallets = rows.map(r => r.address);
+    return this.trackedWallets;
   }
 
   connect() {
     console.log('[Monitor] Connecting to Helius WebSocket...');
-
     this.ws = new WebSocket(HELIUS_WS_URL);
 
-    this.ws.on('open', () => {
+    this.ws.on('open', async () => {
       console.log('[Monitor] Connected to Helius');
       this.broadcast({ type: 'status', connected: true });
-      this.subscribeAll();
-
-      // Keep connection alive
+      await this.subscribeAll();
       this.pingInterval = setInterval(() => {
         if (this.ws.readyState === WebSocket.OPEN) {
           this.ws.send(JSON.stringify({ jsonrpc: '2.0', id: 'ping', method: 'getHealth' }));
@@ -46,9 +44,7 @@ class WalletMonitor {
       try {
         const msg = JSON.parse(data.toString());
         this.handleMessage(msg);
-      } catch (e) {
-        // ignore parse errors
-      }
+      } catch (e) {}
     });
 
     this.ws.on('close', () => {
@@ -63,8 +59,8 @@ class WalletMonitor {
     });
   }
 
-  subscribeAll() {
-    const wallets = this.getTrackedWallets();
+  async subscribeAll() {
+    const wallets = await this.loadWallets();
     wallets.forEach(addr => this.subscribeWallet(addr));
     console.log(`[Monitor] Subscribed to ${wallets.length} wallets`);
   }
@@ -72,145 +68,70 @@ class WalletMonitor {
   subscribeWallet(address) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     if (this.subscriptions.has(address)) return;
-
     const id = Date.now() + Math.random();
     this.subscriptions.set(address, id);
-
     this.ws.send(JSON.stringify({
-      jsonrpc: '2.0',
-      id,
+      jsonrpc: '2.0', id,
       method: 'logsSubscribe',
-      params: [
-        { mentions: [address] },
-        { commitment: 'confirmed' }
-      ]
+      params: [{ mentions: [address] }, { commitment: 'confirmed' }]
     }));
-
-    console.log(`[Monitor] Subscribed to wallet: ${address.slice(0, 8)}...`);
+    console.log(`[Monitor] Subscribed to: ${address.slice(0, 8)}...`);
   }
 
   unsubscribeWallet(address) {
     const subId = this.subscriptions.get(address);
     if (!subId || !this.ws) return;
-
-    this.ws.send(JSON.stringify({
-      jsonrpc: '2.0',
-      id: Date.now(),
-      method: 'logsUnsubscribe',
-      params: [subId]
-    }));
-
+    this.ws.send(JSON.stringify({ jsonrpc: '2.0', id: Date.now(), method: 'logsUnsubscribe', params: [subId] }));
     this.subscriptions.delete(address);
-    console.log(`[Monitor] Unsubscribed from: ${address.slice(0, 8)}...`);
   }
 
   handleMessage(msg) {
-    // Ignore subscription confirmations and pings
     if (msg.id || !msg.params) return;
-
     const result = msg.params?.result;
     if (!result) return;
-
     const logs = result.value?.logs || [];
     const signature = result.value?.signature;
 
-    // Check if this transaction involves a DEX
-    const isDexTx = logs.some(log =>
-      [...DEX_PROGRAMS].some(prog => log.includes(prog))
-    );
-
+    const isDexTx = logs.some(log => [...DEX_PROGRAMS].some(prog => log.includes(prog)));
     if (!isDexTx) return;
 
-    // Find which tracked wallet triggered this
-    const wallets = this.getTrackedWallets();
-    const sourceWallet = wallets.find(addr =>
-      logs.some(log => log.includes(addr))
-    );
-
+    const sourceWallet = this.trackedWallets.find(addr => logs.some(log => log.includes(addr)));
     if (!sourceWallet) return;
 
-    // Determine trade type from logs
-    const isBuy = logs.some(log =>
-      log.toLowerCase().includes('buy') ||
-      log.toLowerCase().includes('swap') && !log.toLowerCase().includes('sell')
-    );
-
+    const isBuy = logs.some(log => log.toLowerCase().includes('buy') || log.toLowerCase().includes('swap'));
     const tradeType = isBuy ? 'buy' : 'sell';
 
-    console.log(`[Monitor] Detected ${tradeType.toUpperCase()} from ${sourceWallet.slice(0,8)}... tx: ${signature}`);
-
-    this.broadcast({
-      type: 'trade_detected',
-      sourceWallet,
-      tradeType,
-      signature,
-      timestamp: Date.now()
-    });
-
-    // Get settings and decide whether to copy
+    console.log(`[Monitor] Detected ${tradeType.toUpperCase()} from ${sourceWallet.slice(0,8)}...`);
+    this.broadcast({ type: 'trade_detected', sourceWallet, tradeType, signature, timestamp: Date.now() });
     this.handleTradeDecision(sourceWallet, tradeType, signature, logs);
   }
 
   async handleTradeDecision(sourceWallet, tradeType, signature, logs) {
-    const settings = this.getSettings();
+    const rows = await db.all_p('SELECT key, value FROM settings');
+    const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
 
-    // Skip sells if filter is on
     if (tradeType === 'sell' && settings.skip_sells === '1') {
-      console.log(`[Monitor] Skipping sell — filter active`);
-      this.broadcast({
-        type: 'trade_skipped',
-        reason: 'Sell filter active',
-        sourceWallet,
-        tradeType
-      });
-
-      // Log skipped trade to DB
-      db.prepare(`
-        INSERT INTO trades (source_wallet, token_mint, token_symbol, type, status)
-        VALUES (?, ?, ?, ?, 'skipped')
-      `).run(sourceWallet, 'unknown', 'unknown', tradeType);
+      this.broadcast({ type: 'trade_skipped', reason: 'Sell filter active', sourceWallet, tradeType });
+      await db.run_p(`INSERT INTO trades (source_wallet, token_mint, token_symbol, type, status) VALUES (?, ?, ?, ?, 'skipped')`,
+        [sourceWallet, 'unknown', 'unknown', tradeType]);
       return;
     }
 
-    if (settings.bot_active !== '1') {
-      console.log('[Monitor] Bot is paused, skipping trade');
-      return;
-    }
+    if (settings.bot_active !== '1') return;
 
-    // Execute the copy trade
     try {
-      await executeCopyTrade({
-        sourceWallet,
-        tradeType,
-        signature,
-        settings,
-        broadcast: this.broadcast.bind(this)
-      });
+      await executeCopyTrade({ sourceWallet, tradeType, signature, settings, broadcast: this.broadcast.bind(this) });
     } catch (err) {
       console.error('[Monitor] Copy trade failed:', err.message);
       this.broadcast({ type: 'trade_error', error: err.message, sourceWallet });
     }
   }
 
-  getSettings() {
-    const rows = db.prepare('SELECT key, value FROM settings').all();
-    return Object.fromEntries(rows.map(r => [r.key, r.value]));
-  }
-
-  // Call this when wallets are added/removed from the dashboard
-  refresh() {
+  async refresh() {
     const current = new Set(this.subscriptions.keys());
-    const active = new Set(this.getTrackedWallets());
-
-    // Subscribe to new wallets
-    for (const addr of active) {
-      if (!current.has(addr)) this.subscribeWallet(addr);
-    }
-
-    // Unsubscribe from removed wallets
-    for (const addr of current) {
-      if (!active.has(addr)) this.unsubscribeWallet(addr);
-    }
+    const active = new Set(await this.loadWallets());
+    for (const addr of active) { if (!current.has(addr)) this.subscribeWallet(addr); }
+    for (const addr of current) { if (!active.has(addr)) this.unsubscribeWallet(addr); }
   }
 
   disconnect() {
