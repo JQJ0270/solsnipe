@@ -1,13 +1,15 @@
 const WebSocket = require('ws');
 const db = require('./db');
 const { executeCopyTrade } = require('./trader');
+const { executePaperTrade } = require('./paper');
 
 const HELIUS_WS_URL = `wss://mainnet.helius-rpc.com/?api-key=${process.env.HELIUS_API_KEY}`;
 
-const JUPITER_PROGRAM = 'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4';
-const RAYDIUM_PROGRAM = '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8';
-const PUMP_FUN_PROGRAM = '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P';
-const DEX_PROGRAMS = new Set([JUPITER_PROGRAM, RAYDIUM_PROGRAM, PUMP_FUN_PROGRAM]);
+const DEX_PROGRAMS = new Set([
+  'JUP6LkbZbjS1jKKwapdHNy74zcZ3tLUZoi5QNyVTaV4',
+  '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8',
+  '6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P',
+]);
 
 class WalletMonitor {
   constructor(broadcast) {
@@ -41,22 +43,17 @@ class WalletMonitor {
     });
 
     this.ws.on('message', (data) => {
-      try {
-        const msg = JSON.parse(data.toString());
-        this.handleMessage(msg);
-      } catch (e) {}
+      try { this.handleMessage(JSON.parse(data.toString())); } catch {}
     });
 
     this.ws.on('close', () => {
-      console.log('[Monitor] WebSocket closed, reconnecting in 3s...');
+      console.log('[Monitor] Disconnected, reconnecting in 3s...');
       this.broadcast({ type: 'status', connected: false });
       clearInterval(this.pingInterval);
       this.reconnectTimer = setTimeout(() => this.connect(), 3000);
     });
 
-    this.ws.on('error', (err) => {
-      console.error('[Monitor] WebSocket error:', err.message);
-    });
+    this.ws.on('error', (err) => console.error('[Monitor] WS error:', err.message));
   }
 
   async subscribeAll() {
@@ -75,7 +72,7 @@ class WalletMonitor {
       method: 'logsSubscribe',
       params: [{ mentions: [address] }, { commitment: 'confirmed' }]
     }));
-    console.log(`[Monitor] Subscribed to: ${address.slice(0, 8)}...`);
+    console.log(`[Monitor] Subscribed: ${address.slice(0,8)}...`);
   }
 
   unsubscribeWallet(address) {
@@ -101,7 +98,7 @@ class WalletMonitor {
     const isBuy = logs.some(log => log.toLowerCase().includes('buy') || log.toLowerCase().includes('swap'));
     const tradeType = isBuy ? 'buy' : 'sell';
 
-    console.log(`[Monitor] Detected ${tradeType.toUpperCase()} from ${sourceWallet.slice(0,8)}...`);
+    console.log(`[Monitor] ${tradeType.toUpperCase()} detected from ${sourceWallet.slice(0,8)}...`);
     this.broadcast({ type: 'trade_detected', sourceWallet, tradeType, signature, timestamp: Date.now() });
     this.handleTradeDecision(sourceWallet, tradeType, signature, logs);
   }
@@ -118,6 +115,22 @@ class WalletMonitor {
     }
 
     if (settings.bot_active !== '1') return;
+
+    if (settings.paper_mode === '1') {
+      console.log('[Monitor] Paper mode — simulating trade');
+      try {
+        await executePaperTrade({
+          sourceWallet, tradeType,
+          tokenMint: 'unknown',
+          tokenSymbol: 'TOKEN',
+          settings,
+          broadcast: this.broadcast.bind(this)
+        });
+      } catch (err) {
+        console.error('[Monitor] Paper trade failed:', err.message);
+      }
+      return;
+    }
 
     try {
       await executeCopyTrade({ sourceWallet, tradeType, signature, settings, broadcast: this.broadcast.bind(this) });
