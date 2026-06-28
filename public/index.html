@@ -12,7 +12,8 @@
   --text1:#f0f0f5;--text2:#a0a0b0;--text3:#606070;
   --green:#00e87a;--green2:#00b85f;--green-bg:rgba(0,232,122,0.08);
   --red:#ff4d4d;--red-bg:rgba(255,77,77,0.08);
-  --amber:#f5a623;
+  --amber:#f5a623;--amber-bg:rgba(245,166,35,0.1);
+  --purple:#7c6fff;--purple-bg:rgba(124,111,255,0.1);
 }
 .light{
   --bg0:#f0f0f5;--bg1:#ffffff;--bg2:#f7f7fb;--bg3:#ececf3;
@@ -20,33 +21,36 @@
   --text1:#0d0d1a;--text2:#555570;--text3:#9090a8;
   --green:#009950;--green2:#007a3e;--green-bg:rgba(0,153,80,0.08);
   --red:#cc2222;--red-bg:rgba(204,34,34,0.08);
-  --amber:#b87000;
+  --amber:#b87000;--amber-bg:rgba(184,112,0,0.1);
+  --purple:#5b4fe0;--purple-bg:rgba(91,79,224,0.1);
 }
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg0);color:var(--text1);transition:background 0.2s,color 0.2s;min-height:100vh;}
-.dash{display:flex;flex-direction:column;min-height:100vh;}
 
 /* TOPBAR */
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:52px;background:var(--bg1);border-bottom:1.5px solid var(--border2);position:sticky;top:0;z-index:100;}
-.topbar-left{display:flex;align-items:center;gap:12px;}
-.logo{font-size:16px;font-weight:500;letter-spacing:-0.5px;color:var(--text1);}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.logo{font-size:16px;font-weight:500;letter-spacing:-0.5px;}
 .logo em{color:var(--green);font-style:normal;}
 .status-pill{display:flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:20px;background:var(--green-bg);color:var(--green);border:1px solid rgba(0,232,122,0.2);}
 .status-pill.offline{background:var(--red-bg);color:var(--red);border-color:rgba(255,77,77,0.2);}
 .dot{width:6px;height:6px;border-radius:50%;background:currentColor;animation:pulse 2s infinite;}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.paper-badge{display:flex;align-items:center;gap:5px;font-size:11px;padding:3px 10px;border-radius:20px;background:var(--purple-bg);color:var(--purple);border:1px solid rgba(124,111,255,0.3);font-weight:500;}
 .topbar-right{display:flex;align-items:center;gap:8px;}
-.wallet-chip{font-size:11px;color:var(--text2);font-family:monospace;background:var(--bg3);padding:5px 12px;border-radius:6px;border:1px solid var(--border);}
 .sol-balance{font-size:12px;color:var(--green);font-weight:500;padding:4px 10px;background:var(--green-bg);border-radius:6px;border:1px solid rgba(0,232,122,0.2);}
-.icon-btn{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:15px;line-height:1;color:var(--text1);}
+.paper-balance{font-size:12px;color:var(--purple);font-weight:500;padding:4px 10px;background:var(--purple-bg);border-radius:6px;border:1px solid rgba(124,111,255,0.3);}
+.icon-btn{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:5px 10px;cursor:pointer;font-size:15px;color:var(--text1);}
 .icon-btn:hover{border-color:var(--border2);}
 .pause-btn{background:var(--amber);color:#000;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:500;cursor:pointer;}
 .pause-btn.paused{background:var(--green);}
+.mode-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;cursor:pointer;}
+.mode-toggle:hover{border-color:var(--purple);}
 
 /* LAYOUT */
-.main{display:grid;grid-template-columns:290px 1fr;flex:1;}
+.main{display:grid;grid-template-columns:290px 1fr;}
 
 /* SIDEBAR */
-.sidebar{background:var(--bg1);border-right:1.5px solid var(--border2);display:flex;flex-direction:column;}
+.sidebar{background:var(--bg1);border-right:1.5px solid var(--border2);display:flex;flex-direction:column;min-height:calc(100vh - 52px);}
 .sidebar-block{padding:16px;}
 .sidebar-block+.sidebar-block{border-top:1.5px solid var(--border2);}
 .block-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
@@ -72,8 +76,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .wc-stats{display:flex;gap:14px;}
 .ws-stat{font-size:11px;color:var(--text3);}
 .ws-stat b{font-weight:500;color:var(--text2);}
-.ws-stat.g b{color:var(--green);}
-.ws-stat.r b{color:var(--red);}
 .empty-wallets{font-size:12px;color:var(--text3);text-align:center;padding:16px 0;}
 
 .toggle{position:relative;width:30px;height:17px;flex-shrink:0;}
@@ -94,6 +96,19 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
 
 /* CONTENT */
 .content{display:flex;flex-direction:column;background:var(--bg0);}
+
+/* PAPER BANNER */
+.paper-banner{background:var(--purple-bg);border-bottom:1.5px solid rgba(124,111,255,0.3);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;}
+.paper-banner-left{display:flex;align-items:center;gap:10px;}
+.paper-banner-title{font-size:12px;font-weight:500;color:var(--purple);}
+.paper-banner-sub{font-size:11px;color:var(--text3);}
+.paper-banner-right{display:flex;align-items:center;gap:8px;}
+.go-live-btn{background:var(--green);color:#000;border:none;border-radius:6px;padding:5px 14px;font-size:12px;font-weight:500;cursor:pointer;}
+.go-live-btn:hover{background:var(--green2);}
+.reset-btn{background:var(--bg3);color:var(--text2);border:1px solid var(--border2);border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;}
+.reset-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* STATS */
 .stats-row{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg1);border-bottom:1.5px solid var(--border2);}
 .stat-box{padding:16px 18px;border-right:1px solid var(--border);}
 .stat-box:last-child{border-right:none;}
@@ -101,8 +116,20 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
 .stat-num{font-size:22px;font-weight:500;color:var(--text1);line-height:1;}
 .stat-num.g{color:var(--green);}
 .stat-num.r{color:var(--red);}
+.stat-num.p{color:var(--purple);}
 .stat-sub{font-size:10px;color:var(--text3);margin-top:4px;}
 
+/* PAPER STATS */
+.paper-stats{display:grid;grid-template-columns:repeat(4,1fr);background:var(--bg1);border-bottom:1.5px solid var(--border2);}
+.pstat{padding:12px 18px;border-right:1px solid var(--border);}
+.pstat:last-child{border-right:none;}
+.pstat-lbl{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;}
+.pstat-val{font-size:18px;font-weight:500;color:var(--text1);}
+.pstat-val.g{color:var(--green);}
+.pstat-val.r{color:var(--red);}
+.pstat-val.p{color:var(--purple);}
+
+/* FEED */
 .feed-wrap{padding:16px;display:flex;flex-direction:column;gap:10px;}
 .feed-hdr{display:flex;align-items:center;justify-content:space-between;}
 .feed-title{font-size:12px;font-weight:500;color:var(--text1);display:flex;align-items:center;gap:7px;}
@@ -112,8 +139,9 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
 .tab:hover{color:var(--text2);}
 .tab.on{background:var(--bg3);color:var(--text1);border-color:var(--border2);}
 
-.trade-list{display:flex;flex-direction:column;gap:5px;max-height:340px;overflow-y:auto;}
+.trade-list{display:flex;flex-direction:column;gap:5px;max-height:300px;overflow-y:auto;}
 .trade-row{background:var(--bg1);border-radius:8px;border:1px solid var(--border);padding:10px 14px;display:flex;align-items:center;gap:10px;}
+.trade-row.paper{border-left:3px solid var(--purple);}
 .ttype{font-size:10px;font-weight:500;padding:3px 9px;border-radius:4px;min-width:34px;text-align:center;}
 .ttype.b{background:var(--green-bg);color:var(--green);border:1px solid rgba(0,232,122,0.2);}
 .ttype.s{background:var(--red-bg);color:var(--red);border:1px solid rgba(255,77,77,0.2);}
@@ -125,11 +153,13 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
 .tamount.g{color:var(--green);}
 .tamount.r{color:var(--red);}
 .tamount.p{color:var(--amber);}
+.tamount.pp{color:var(--purple);}
 .tamount.sk{color:var(--text3);}
 .ttime{font-size:10px;color:var(--text3);min-width:50px;text-align:right;}
 .tstatus{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .tstatus.c{background:var(--green);}
 .tstatus.p{background:var(--amber);}
+.tstatus.pp{background:var(--purple);}
 .tstatus.sk{background:var(--border2);}
 .empty-feed{font-size:12px;color:var(--text3);text-align:center;padding:32px 0;}
 
@@ -137,6 +167,7 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
 .div-line{flex:1;height:1px;background:var(--border);}
 .div-label{font-size:10px;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;}
 
+/* PAPER TRADES TABLE */
 .pnl-wrap{padding:0 16px 16px;}
 .pnl-card{background:var(--bg1);border:1px solid var(--border2);border-radius:10px;overflow:hidden;}
 .pnl-hdr{padding:11px 16px;border-bottom:1.5px solid var(--border2);display:flex;align-items:center;justify-content:space-between;}
@@ -148,20 +179,25 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
 .pnl-table td:first-child{color:var(--text1);font-weight:500;}
 .g{color:var(--green)!important;}
 .r{color:var(--red)!important;}
+.pp{color:var(--purple)!important;}
 .tag{font-size:9px;padding:1px 6px;border-radius:4px;background:var(--bg3);color:var(--text3);border:1px solid var(--border);margin-left:4px;}
-.toast{position:fixed;bottom:20px;right:20px;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text1);z-index:999;display:none;box-shadow:0 4px 24px rgba(0,0,0,0.4);}
+.tag.open{background:var(--purple-bg);color:var(--purple);border-color:rgba(124,111,255,0.3);}
+.tag.closed{background:var(--green-bg);color:var(--green);border-color:rgba(0,232,122,0.2);}
+
+.toast{position:fixed;bottom:20px;right:20px;background:var(--bg1);border:1px solid var(--border2);border-radius:8px;padding:10px 16px;font-size:12px;color:var(--text1);z-index:999;display:none;box-shadow:0 4px 24px rgba(0,0,0,0.4);max-width:300px;}
 </style>
 </head>
 <body>
-<div class="dash" id="dash">
+<div id="dash">
   <div class="topbar">
     <div class="topbar-left">
       <div class="logo">sol<em>snipe</em></div>
-      <div class="status-pill offline" id="statusPill"><div class="dot"></div> <span id="statusText">Connecting...</span></div>
+      <div class="status-pill offline" id="statusPill"><div class="dot"></div><span id="statusText">Connecting...</span></div>
+      <div class="paper-badge" id="paperBadge" style="display:none">📄 PAPER MODE</div>
     </div>
     <div class="topbar-right">
+      <div class="paper-balance" id="paperBalance" style="display:none">$100.00 virtual</div>
       <div class="sol-balance" id="solBalance">— SOL</div>
-      <div class="wallet-chip" id="walletChip">wallet not set</div>
       <button class="icon-btn" id="modeBtn" onclick="toggleMode()">🌙</button>
       <button class="pause-btn" id="pauseBtn" onclick="toggleBot()">⏸ Pause</button>
     </div>
@@ -175,7 +211,7 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
           <span class="block-badge" id="walletCount">0 wallets</span>
         </div>
         <div class="add-row">
-          <input id="walletInput" type="text" placeholder="Paste Solana wallet address..." />
+          <input id="walletInput" type="text" placeholder="Paste Solana wallet address..."/>
           <button class="btn-green" onclick="addWallet()">+ Add</button>
         </div>
         <div class="wallet-list" id="walletList">
@@ -196,30 +232,47 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
         </div>
         <button class="save-btn" onclick="saveSettings()">Save filters →</button>
       </div>
+
+      <div class="sidebar-block">
+        <div class="block-header"><span class="block-title">Trading mode</span></div>
+        <div class="fi-row" style="margin-bottom:8px;">
+          <span style="font-size:12px;color:var(--text2);">Paper trading</span>
+          <label class="toggle"><input type="checkbox" id="paperToggle" checked onchange="togglePaperMode()"><span class="tslider"></span></label>
+        </div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.5;">Paper mode simulates trades with $100 virtual balance. No real money used. Toggle off to go live.</div>
+      </div>
     </div>
 
     <div class="content">
+      <!-- Paper banner -->
+      <div class="paper-banner" id="paperBanner">
+        <div class="paper-banner-left">
+          <span style="font-size:20px;">📄</span>
+          <div>
+            <div class="paper-banner-title">Paper Trading Mode — $100 Virtual Balance</div>
+            <div class="paper-banner-sub">Trades are simulated with real market prices. No real SOL is used.</div>
+          </div>
+        </div>
+        <div class="paper-banner-right">
+          <button class="reset-btn" onclick="resetPaper()">↺ Reset</button>
+          <button class="go-live-btn" onclick="goLive()">Go Live →</button>
+        </div>
+      </div>
+
+      <!-- Paper stats -->
+      <div class="paper-stats" id="paperStats">
+        <div class="pstat"><div class="pstat-lbl">Virtual Balance</div><div class="pstat-val p" id="ps-balance">$100.00</div></div>
+        <div class="pstat"><div class="pstat-lbl">Paper PnL</div><div class="pstat-val" id="ps-pnl">$0.00</div></div>
+        <div class="pstat"><div class="pstat-lbl">Win Rate</div><div class="pstat-val" id="ps-wr">—</div></div>
+        <div class="pstat"><div class="pstat-lbl">Open Trades</div><div class="pstat-val" id="ps-open">0</div></div>
+      </div>
+
+      <!-- Live stats -->
       <div class="stats-row">
-        <div class="stat-box">
-          <div class="stat-lbl">Total PnL</div>
-          <div class="stat-num g" id="stat-pnl">$0.00</div>
-          <div class="stat-sub">All time</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-lbl">Trades copied</div>
-          <div class="stat-num" id="stat-trades">0</div>
-          <div class="stat-sub" id="stat-trades-sub">No trades yet</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-lbl">Win rate</div>
-          <div class="stat-num" id="stat-winrate">—</div>
-          <div class="stat-sub" id="stat-winrate-sub">0W · 0L</div>
-        </div>
-        <div class="stat-box">
-          <div class="stat-lbl">Active wallets</div>
-          <div class="stat-num" id="stat-wallets">0</div>
-          <div class="stat-sub">Monitoring live</div>
-        </div>
+        <div class="stat-box"><div class="stat-lbl">Total PnL</div><div class="stat-num g" id="stat-pnl">$0.00</div><div class="stat-sub">Live trades</div></div>
+        <div class="stat-box"><div class="stat-lbl">Trades copied</div><div class="stat-num" id="stat-trades">0</div><div class="stat-sub" id="stat-trades-sub">No trades yet</div></div>
+        <div class="stat-box"><div class="stat-lbl">Win rate</div><div class="stat-num" id="stat-winrate">—</div><div class="stat-sub" id="stat-winrate-sub">0W · 0L</div></div>
+        <div class="stat-box"><div class="stat-lbl">Active wallets</div><div class="stat-num" id="stat-wallets">0</div><div class="stat-sub">Monitoring live</div></div>
       </div>
 
       <div class="feed-wrap">
@@ -231,29 +284,31 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
           </div>
           <div class="tabs">
             <button class="tab on" onclick="filterFeed('all',this)">All</button>
-            <button class="tab" onclick="filterFeed('copied',this)">Copied</button>
+            <button class="tab" onclick="filterFeed('paper',this)">Paper</button>
+            <button class="tab" onclick="filterFeed('live',this)">Live</button>
             <button class="tab" onclick="filterFeed('skipped',this)">Skipped</button>
           </div>
         </div>
         <div class="trade-list" id="tradeList">
-          <div class="empty-feed">Waiting for trades... Add wallets and the bot will start copying.</div>
+          <div class="empty-feed">Add wallets to start paper trading — trades will appear here in real time.</div>
         </div>
       </div>
 
       <div class="section-divider">
         <div class="div-line"></div>
-        <span class="div-label">PnL breakdown</span>
+        <span class="div-label" id="tableLabel">Paper trades</span>
         <div class="div-line"></div>
       </div>
 
       <div class="pnl-wrap">
         <div class="pnl-card">
           <div class="pnl-hdr">
-            <div class="pnl-hdrtitle">Recent trades</div>
+            <div class="pnl-hdrtitle" id="tableTitle">Paper trading results</div>
+            <button class="reset-btn" onclick="resetPaper()" id="resetBtn">↺ Reset paper</button>
           </div>
           <table class="pnl-table">
             <thead><tr><th>Token</th><th>Source</th><th>Type</th><th>Amount</th><th>PnL</th><th>Status</th></tr></thead>
-            <tbody id="pnlBody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No trades yet</td></tr></tbody>
+            <tbody id="pnlBody"><tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No trades yet — add wallets to start</td></tr></tbody>
           </table>
         </div>
       </div>
@@ -264,65 +319,85 @@ input:checked+.tslider:before{transform:translateX(13px);background:#000;}
 <div class="toast" id="toast"></div>
 
 <script>
-// ─── CONFIG ─────────────────────────────────────────────────
 const API = window.location.origin + '/api';
-const WS_URL = (window.location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + window.location.host + '/ws';
+const WS_URL = (location.protocol === 'https:' ? 'wss:' : 'ws:') + '//' + location.host + '/ws';
 
-// ─── STATE ──────────────────────────────────────────────────
 let isLight = false;
 let botActive = true;
-let allTrades = [];
+let isPaperMode = true;
+let allFeedItems = [];
 let currentFilter = 'all';
 let ws;
 
-// ─── INIT ────────────────────────────────────────────────────
 async function init() {
   await loadWallets();
   await loadSettings();
   await loadPnL();
   await loadTrades();
+  await loadPaperStats();
   await loadStatus();
   connectWebSocket();
   setInterval(loadStatus, 10000);
+  setInterval(loadPaperStats, 15000);
 }
 
-// ─── WEBSOCKET ───────────────────────────────────────────────
 function connectWebSocket() {
   ws = new WebSocket(WS_URL);
-
-  ws.onopen = () => {
-    setStatus(true);
-  };
-
-  ws.onclose = () => {
-    setStatus(false);
-    setTimeout(connectWebSocket, 3000);
-  };
-
-  ws.onmessage = (event) => {
-    const msg = JSON.parse(event.data);
-    handleLiveUpdate(msg);
+  ws.onopen = () => setStatus(true);
+  ws.onclose = () => { setStatus(false); setTimeout(connectWebSocket, 3000); };
+  ws.onmessage = (e) => {
+    try { handleLiveUpdate(JSON.parse(e.data)); } catch {}
   };
 }
 
 function handleLiveUpdate(msg) {
   if (msg.type === 'status') {
     setStatus(msg.connected);
-  } else if (msg.type === 'trade_copied' || msg.type === 'trade_skipped' || msg.type === 'trade_executing') {
-    // Refresh trades and PnL after a short delay
+  } else if (msg.type === 'paper_trade_opened') {
+    addFeedItem({
+      isPaper: true,
+      type: msg.trade?.type || 'buy',
+      token: msg.trade?.token_symbol || 'TOKEN',
+      detail: `$${parseFloat(msg.trade?.amount_usd || 0).toFixed(2)} virtual`,
+      from: msg.trade?.source_wallet?.slice(0,8) + '...',
+      amount: `$${parseFloat(msg.trade?.amount_usd || 0).toFixed(2)}`,
+      amountClass: 'pp',
+      status: 'pp',
+      time: 'now'
+    });
+    showToast(msg.message || '📄 Paper trade opened');
+    setTimeout(() => { loadPaperStats(); loadPaperTrades(); }, 1000);
+  } else if (msg.type === 'paper_trade_closed') {
+    const pnl = parseFloat(msg.pnlUsd || 0);
+    addFeedItem({
+      isPaper: true,
+      type: 'sell',
+      token: msg.tokenSymbol || 'TOKEN',
+      detail: `Closed — ${msg.reason}`,
+      from: 'paper bot',
+      amount: (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2),
+      amountClass: pnl >= 0 ? 'g' : 'r',
+      status: pnl >= 0 ? 'c' : 'sk',
+      time: 'now'
+    });
+    showToast(msg.message || '📄 Paper trade closed');
+    setTimeout(() => { loadPaperStats(); loadPaperTrades(); }, 1000);
+  } else if (msg.type === 'trade_copied') {
+    showToast(`✅ Live copied ${msg.tradeType?.toUpperCase()} — ${msg.tokenSymbol}`);
     setTimeout(() => { loadTrades(); loadPnL(); }, 1000);
-    showToast(msg.type === 'trade_copied'
-      ? `✅ Copied ${msg.tradeType?.toUpperCase()} — ${msg.tokenSymbol || 'token'}`
-      : msg.type === 'trade_skipped'
-      ? `⏭ Skipped — ${msg.reason || ''}`
-      : `⏳ Executing copy trade...`
-    );
+  } else if (msg.type === 'trade_skipped') {
+    addFeedItem({ type: 'sell', token: '—', detail: 'Skipped — ' + (msg.reason || ''), from: msg.sourceWallet?.slice(0,8) + '...', amount: 'skipped', amountClass: 'sk', status: 'sk', time: 'now' });
   } else if (msg.type === 'trade_error') {
-    showToast(`❌ Trade failed: ${msg.error}`);
+    showToast(`❌ Error: ${msg.error}`);
   }
 }
 
-// ─── API CALLS ───────────────────────────────────────────────
+function addFeedItem(item) {
+  allFeedItems.unshift(item);
+  if (allFeedItems.length > 50) allFeedItems.pop();
+  renderFeed();
+}
+
 async function loadWallets() {
   const wallets = await fetch(API + '/wallets').then(r => r.json()).catch(() => []);
   renderWallets(wallets);
@@ -332,56 +407,44 @@ async function addWallet() {
   const input = document.getElementById('walletInput');
   const address = input.value.trim();
   if (!address || address.length < 32) { showToast('❌ Invalid address'); return; }
-
   const res = await fetch(API + '/wallets', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ address, label: 'Wallet' })
   });
-  if (res.ok) {
-    input.value = '';
-    await loadWallets();
-    await loadStatus();
-    showToast('✅ Wallet added');
-  } else {
-    const err = await res.json();
-    showToast('❌ ' + (err.error || 'Error adding wallet'));
-  }
+  if (res.ok) { input.value = ''; await loadWallets(); await loadStatus(); showToast('✅ Wallet added — now monitoring'); }
+  else { const err = await res.json(); showToast('❌ ' + (err.error || 'Error')); }
 }
 
 async function deleteWallet(id) {
   await fetch(API + '/wallets/' + id, { method: 'DELETE' });
-  await loadWallets();
-  await loadStatus();
+  await loadWallets(); await loadStatus();
   showToast('🗑 Wallet removed');
 }
 
 async function toggleWallet(id, enabled) {
-  await fetch(API + '/wallets/' + id, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ enabled })
-  });
+  await fetch(API + '/wallets/' + id, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled }) });
   await loadStatus();
 }
 
 async function loadSettings() {
-  const settings = await fetch(API + '/settings').then(r => r.json()).catch(() => ({}));
-  if (settings.min_trade_sol) document.getElementById('s_min_trade').value = settings.min_trade_sol;
-  if (settings.max_trade_sol) document.getElementById('s_max_trade').value = settings.max_trade_sol;
-  if (settings.copy_amount_sol) document.getElementById('s_copy_amount').value = settings.copy_amount_sol;
-  if (settings.slippage_bps) document.getElementById('s_slippage').value = (parseInt(settings.slippage_bps) / 100).toFixed(0);
-  if (settings.min_token_age_seconds) document.getElementById('s_token_age').value = settings.min_token_age_seconds;
-  document.getElementById('s_skip_sells').checked = settings.skip_sells === '1';
-  document.getElementById('s_auto_sell').checked = settings.auto_sell_multiplier !== '0';
-  botActive = settings.bot_active === '1';
+  const s = await fetch(API + '/settings').then(r => r.json()).catch(() => ({}));
+  if (s.min_trade_sol) document.getElementById('s_min_trade').value = s.min_trade_sol;
+  if (s.max_trade_sol) document.getElementById('s_max_trade').value = s.max_trade_sol;
+  if (s.copy_amount_sol) document.getElementById('s_copy_amount').value = s.copy_amount_sol;
+  if (s.slippage_bps) document.getElementById('s_slippage').value = (parseInt(s.slippage_bps) / 100).toFixed(0);
+  if (s.min_token_age_seconds) document.getElementById('s_token_age').value = s.min_token_age_seconds;
+  document.getElementById('s_skip_sells').checked = s.skip_sells === '1';
+  document.getElementById('s_auto_sell').checked = s.auto_sell_multiplier !== '0';
+  isPaperMode = s.paper_mode === '1';
+  document.getElementById('paperToggle').checked = isPaperMode;
+  botActive = s.bot_active === '1';
   updatePauseBtn();
+  updatePaperUI();
 }
 
 async function saveSettings() {
   await fetch(API + '/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       min_trade_sol: document.getElementById('s_min_trade').value,
       max_trade_sol: document.getElementById('s_max_trade').value,
@@ -395,42 +458,91 @@ async function saveSettings() {
   showToast('✅ Filters saved');
 }
 
+async function togglePaperMode() {
+  isPaperMode = document.getElementById('paperToggle').checked;
+  await fetch(API + '/settings', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ paper_mode: isPaperMode ? '1' : '0' })
+  });
+  updatePaperUI();
+  showToast(isPaperMode ? '📄 Paper mode ON — no real money used' : '🔴 LIVE mode ON — real trades will execute!');
+}
+
+async function goLive() {
+  if (!confirm('⚠️ Switch to LIVE trading? Real SOL will be used for trades. Make sure your wallet is funded.')) return;
+  document.getElementById('paperToggle').checked = false;
+  await togglePaperMode();
+}
+
+async function resetPaper() {
+  if (!confirm('Reset paper trading? This will clear all paper trades and reset balance to $100.')) return;
+  await fetch(API + '/paper/reset', { method: 'POST' });
+  await loadPaperStats();
+  await loadPaperTrades();
+  showToast('↺ Paper trading reset to $100');
+}
+
+async function loadPaperStats() {
+  const stats = await fetch(API + '/paper/stats').then(r => r.json()).catch(() => null);
+  if (!stats) return;
+  document.getElementById('ps-balance').textContent = '$' + stats.virtualBalance.toFixed(2);
+  const pnl = stats.totalPnl || 0;
+  const pnlEl = document.getElementById('ps-pnl');
+  pnlEl.textContent = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2);
+  pnlEl.className = 'pstat-val ' + (pnl >= 0 ? 'g' : 'r');
+  document.getElementById('ps-wr').textContent = stats.winRate > 0 ? stats.winRate + '%' : '—';
+  document.getElementById('ps-open').textContent = stats.openTrades || 0;
+  document.getElementById('paperBalance').textContent = '$' + stats.virtualBalance.toFixed(2) + ' virtual';
+}
+
+async function loadPaperTrades() {
+  const trades = await fetch(API + '/paper/trades').then(r => r.json()).catch(() => []);
+  const tbody = document.getElementById('pnlBody');
+  if (!isPaperMode) return;
+  if (!trades || trades.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No paper trades yet — add wallets to start</td></tr>';
+    return;
+  }
+  tbody.innerHTML = trades.map(t => {
+    const pnl = t.pnl_usd;
+    return `<tr>
+      <td>${t.token_symbol || t.token_mint?.slice(0,8) || '?'}</td>
+      <td style="font-family:monospace;font-size:10px;">${t.source_wallet?.slice(0,8)}...</td>
+      <td><span class="ttype ${t.type === 'buy' ? 'b' : 's'}" style="display:inline-block;">${t.type?.toUpperCase()}</span></td>
+      <td>$${parseFloat(t.amount_usd || 0).toFixed(2)}</td>
+      <td class="${pnl > 0 ? 'g' : pnl < 0 ? 'r' : ''}">${pnl != null ? (pnl >= 0 ? '+' : '') + '$' + parseFloat(pnl).toFixed(2) : '—'}</td>
+      <td><span class="tag ${t.status}">${t.status}</span></td>
+    </tr>`;
+  }).join('');
+}
+
 async function loadTrades() {
-  const trades = await fetch(API + '/trades?limit=30').then(r => r.json()).catch(() => []);
-  allTrades = trades;
-  renderTrades();
+  const trades = await fetch(API + '/trades?limit=20').then(r => r.json()).catch(() => []);
+  if (!isPaperMode && trades.length > 0) {
+    const tbody = document.getElementById('pnlBody');
+    tbody.innerHTML = trades.map(t => `<tr>
+      <td>${t.token_symbol || '?'}</td>
+      <td style="font-family:monospace;font-size:10px;">${t.source_wallet?.slice(0,8)}...</td>
+      <td><span class="ttype ${t.type === 'buy' ? 'b' : 's'}" style="display:inline-block;">${t.type?.toUpperCase()}</span></td>
+      <td>${t.amount_sol ? t.amount_sol + ' SOL' : '—'}</td>
+      <td class="${t.pnl_usd > 0 ? 'g' : t.pnl_usd < 0 ? 'r' : ''}">${t.pnl_usd ? (t.pnl_usd >= 0 ? '+' : '') + '$' + parseFloat(t.pnl_usd).toFixed(2) : '—'}</td>
+      <td><span class="tag ${t.status}">${t.status}</span></td>
+    </tr>`).join('');
+  }
 }
 
 async function loadPnL() {
   const data = await fetch(API + '/pnl').then(r => r.json()).catch(() => null);
   if (!data) return;
   const s = data.summary;
-
   const pnl = parseFloat(s.total_pnl_usd) || 0;
   document.getElementById('stat-pnl').textContent = (pnl >= 0 ? '+' : '') + '$' + Math.abs(pnl).toFixed(2);
   document.getElementById('stat-pnl').className = 'stat-num ' + (pnl >= 0 ? 'g' : 'r');
   document.getElementById('stat-trades').textContent = s.copied || 0;
-
   const total = (s.wins || 0) + (s.losses || 0);
   const wr = total > 0 ? Math.round((s.wins / total) * 100) : 0;
   document.getElementById('stat-winrate').textContent = total > 0 ? wr + '%' : '—';
   document.getElementById('stat-winrate-sub').textContent = `${s.wins || 0}W · ${s.losses || 0}L`;
-
-  // PnL table
-  const tbody = document.getElementById('pnlBody');
-  if (!data.byToken || data.byToken.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:16px;">No trades yet</td></tr>';
-    return;
-  }
-  tbody.innerHTML = data.byToken.map(t => `
-    <tr>
-      <td>${t.token_symbol || t.token_mint?.slice(0,8) || '?'}</td>
-      <td style="font-family:monospace;font-size:10px;">${t.source_wallet?.slice(0,8)}...</td>
-      <td><span class="ttype ${t.type === 'buy' ? 'b' : 's'}" style="display:inline-block;">${t.type?.toUpperCase()}</span></td>
-      <td>${t.amount_sol ? t.amount_sol + ' SOL' : '—'}</td>
-      <td class="${t.pnl_usd > 0 ? 'g' : t.pnl_usd < 0 ? 'r' : ''}">${t.pnl_usd ? (t.pnl_usd > 0 ? '+' : '') + '$' + parseFloat(t.pnl_usd).toFixed(2) : '—'}</td>
-      <td>${statusBadge(t.status)}</td>
-    </tr>`).join('');
 }
 
 async function loadStatus() {
@@ -439,73 +551,86 @@ async function loadStatus() {
   document.getElementById('stat-wallets').textContent = s.active_wallets || 0;
   document.getElementById('solBalance').textContent = (s.balance_sol || 0).toFixed(3) + ' SOL';
   setStatus(s.helius_connected);
+  if (s.paper_mode !== undefined) {
+    isPaperMode = s.paper_mode;
+    document.getElementById('paperToggle').checked = isPaperMode;
+    updatePaperUI();
+  }
+  if (s.paper_balance !== undefined) {
+    document.getElementById('paperBalance').textContent = '$' + s.paper_balance.toFixed(2) + ' virtual';
+    document.getElementById('ps-balance').textContent = '$' + s.paper_balance.toFixed(2);
+  }
 }
 
-// ─── RENDER ──────────────────────────────────────────────────
 function renderWallets(wallets) {
   const list = document.getElementById('walletList');
   document.getElementById('walletCount').textContent = wallets.length + ' wallet' + (wallets.length !== 1 ? 's' : '');
-
-  if (wallets.length === 0) {
-    list.innerHTML = '<div class="empty-wallets">No wallets yet — add one above</div>';
-    return;
-  }
-
+  if (wallets.length === 0) { list.innerHTML = '<div class="empty-wallets">No wallets yet — add one above</div>'; return; }
   list.innerHTML = wallets.map(w => `
-    <div class="wallet-card" id="wcard-${w.id}">
+    <div class="wallet-card">
       <div class="wc-top">
         <div class="wc-name">${w.label || 'Wallet'}</div>
         <div class="wc-actions">
           <button class="del-btn" onclick="deleteWallet(${w.id})">✕</button>
-          <label class="toggle">
-            <input type="checkbox" ${w.enabled ? 'checked' : ''} onchange="toggleWallet(${w.id}, this.checked)">
-            <span class="tslider"></span>
-          </label>
+          <label class="toggle"><input type="checkbox" ${w.enabled ? 'checked' : ''} onchange="toggleWallet(${w.id}, this.checked)"><span class="tslider"></span></label>
         </div>
       </div>
       <div class="wc-addr">${w.address}</div>
-      <div class="wc-stats">
-        <div class="ws-stat">Added <b>${timeAgo(w.created_at)}</b></div>
-      </div>
+      <div class="wc-stats"><div class="ws-stat">Added <b>${timeAgo(w.created_at)}</b></div></div>
     </div>`).join('');
 }
 
-function renderTrades() {
+function renderFeed() {
   const list = document.getElementById('tradeList');
-  let trades = allTrades;
-
-  if (currentFilter === 'copied') trades = trades.filter(t => t.status === 'confirmed');
-  if (currentFilter === 'skipped') trades = trades.filter(t => t.status === 'skipped');
-
-  if (trades.length === 0) {
-    list.innerHTML = '<div class="empty-feed">No trades yet — waiting for activity...</div>';
-    return;
-  }
-
-  list.innerHTML = trades.map(t => `
-    <div class="trade-row">
-      <div class="tstatus ${t.status === 'confirmed' ? 'c' : t.status === 'pending' ? 'p' : 'sk'}"></div>
-      <div class="ttype ${t.type === 'buy' ? 'b' : 's'}">${t.type?.toUpperCase()}</div>
-      <div class="ttoken">${t.token_symbol || t.token_mint?.slice(0,8) || '?'}</div>
+  let items = allFeedItems;
+  if (currentFilter === 'paper') items = items.filter(i => i.isPaper);
+  if (currentFilter === 'live') items = items.filter(i => !i.isPaper);
+  if (currentFilter === 'skipped') items = items.filter(i => i.status === 'sk');
+  if (items.length === 0) { list.innerHTML = '<div class="empty-feed">No trades yet — add wallets to start monitoring.</div>'; return; }
+  list.innerHTML = items.map(i => `
+    <div class="trade-row ${i.isPaper ? 'paper' : ''}">
+      <div class="tstatus ${i.status}"></div>
+      <div class="ttype ${i.type === 'buy' ? 'b' : 's'}">${i.type?.toUpperCase()}</div>
+      <div class="ttoken">${i.token}</div>
       <div class="tdetail">
-        <div class="tdetail-main">${t.amount_sol ? t.amount_sol + ' SOL' : t.status}</div>
-        <div class="tdetail-from">${t.source_wallet?.slice(0,8)}...${t.source_wallet?.slice(-4)}</div>
+        <div class="tdetail-main">${i.detail}</div>
+        <div class="tdetail-from">${i.from}${i.isPaper ? ' · paper' : ''}</div>
       </div>
-      <div class="tamount ${t.pnl_usd > 0 ? 'g' : t.pnl_usd < 0 ? 'r' : t.status === 'pending' ? 'p' : 'sk'}">
-        ${t.pnl_usd ? (t.pnl_usd > 0 ? '+' : '') + '$' + parseFloat(t.pnl_usd).toFixed(2) : t.status}
-      </div>
-      <div class="ttime">${timeAgo(t.created_at)}</div>
+      <div class="tamount ${i.amountClass}">${i.amount}</div>
+      <div class="ttime">${i.time}</div>
     </div>`).join('');
 }
 
-function statusBadge(s) {
-  if (s === 'confirmed') return '<span style="color:var(--green)">✓ copied</span>';
-  if (s === 'skipped') return '<span style="color:var(--text3)">skipped</span>';
-  if (s === 'pending') return '<span style="color:var(--amber)">pending</span>';
-  return s || '—';
+function updatePaperUI() {
+  const banner = document.getElementById('paperBanner');
+  const paperStats = document.getElementById('paperStats');
+  const paperBadge = document.getElementById('paperBadge');
+  const paperBalanceEl = document.getElementById('paperBalance');
+  const tableTitle = document.getElementById('tableTitle');
+  const tableLabel = document.getElementById('tableLabel');
+  const resetBtn = document.getElementById('resetBtn');
+
+  if (isPaperMode) {
+    banner.style.display = 'flex';
+    paperStats.style.display = 'grid';
+    paperBadge.style.display = 'flex';
+    paperBalanceEl.style.display = 'block';
+    tableTitle.textContent = 'Paper trading results';
+    tableLabel.textContent = 'Paper trades';
+    resetBtn.style.display = 'block';
+    loadPaperTrades();
+  } else {
+    banner.style.display = 'none';
+    paperStats.style.display = 'none';
+    paperBadge.style.display = 'none';
+    paperBalanceEl.style.display = 'none';
+    tableTitle.textContent = 'Live trade results';
+    tableLabel.textContent = 'Live trades';
+    resetBtn.style.display = 'none';
+    loadTrades();
+  }
 }
 
-// ─── UI HELPERS ──────────────────────────────────────────────
 function setStatus(connected) {
   const pill = document.getElementById('statusPill');
   const txt = document.getElementById('statusText');
@@ -515,17 +640,13 @@ function setStatus(connected) {
 
 function toggleMode() {
   isLight = !isLight;
-  document.getElementById('dash').className = isLight ? 'dash light' : 'dash';
+  document.getElementById('dash').className = isLight ? 'light' : '';
   document.getElementById('modeBtn').textContent = isLight ? '🌙' : '☀️';
 }
 
 async function toggleBot() {
   botActive = !botActive;
-  await fetch(API + '/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ bot_active: botActive ? '1' : '0' })
-  });
+  await fetch(API + '/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bot_active: botActive ? '1' : '0' }) });
   updatePauseBtn();
   showToast(botActive ? '▶️ Bot resumed' : '⏸ Bot paused');
 }
@@ -540,7 +661,7 @@ function filterFeed(filter, el) {
   currentFilter = filter;
   document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('on'));
   el.classList.add('on');
-  renderTrades();
+  renderFeed();
 }
 
 function timeAgo(ts) {
@@ -556,13 +677,10 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
   t.style.display = 'block';
-  setTimeout(() => t.style.display = 'none', 3000);
+  setTimeout(() => t.style.display = 'none', 4000);
 }
 
-// Enter key on wallet input
-document.getElementById('walletInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') addWallet();
-});
+document.getElementById('walletInput').addEventListener('keydown', e => { if (e.key === 'Enter') addWallet(); });
 
 init();
 </script>
