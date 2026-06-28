@@ -4,12 +4,10 @@ const path = require('path');
 const dbPath = path.join(__dirname, '../solsnipe.db');
 const db = new sqlite3.Database(dbPath);
 
-// Promisify helpers
 db.run_p = (sql, params = []) => new Promise((res, rej) => db.run(sql, params, function(err) { if (err) rej(err); else res(this); }));
 db.get_p = (sql, params = []) => new Promise((res, rej) => db.get(sql, params, (err, row) => { if (err) rej(err); else res(row); }));
 db.all_p = (sql, params = []) => new Promise((res, rej) => db.all(sql, params, (err, rows) => { if (err) rej(err); else res(rows); }));
 
-// Initialize tables
 db.serialize(() => {
   db.run(`CREATE TABLE IF NOT EXISTS wallets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,12 +32,29 @@ db.serialize(() => {
     created_at INTEGER DEFAULT (strftime('%s','now'))
   )`);
 
+  db.run(`CREATE TABLE IF NOT EXISTS paper_trades (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_wallet TEXT NOT NULL,
+    token_mint TEXT NOT NULL,
+    token_symbol TEXT,
+    type TEXT NOT NULL,
+    amount_sol REAL,
+    amount_usd REAL,
+    entry_price REAL,
+    exit_price REAL,
+    tokens_held REAL,
+    pnl_usd REAL,
+    pnl_pct REAL,
+    status TEXT DEFAULT 'open',
+    created_at INTEGER DEFAULT (strftime('%s','now')),
+    closed_at INTEGER
+  )`);
+
   db.run(`CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT
   )`);
 
-  // Default settings
   const defaults = {
     copy_amount_sol: process.env.DEFAULT_COPY_AMOUNT_SOL || '0.25',
     slippage_bps: process.env.DEFAULT_SLIPPAGE_BPS || '1500',
@@ -48,7 +63,9 @@ db.serialize(() => {
     min_token_age_seconds: process.env.MIN_TOKEN_AGE_SECONDS || '30',
     auto_sell_multiplier: process.env.AUTO_SELL_MULTIPLIER || '2',
     skip_sells: '0',
-    bot_active: '1'
+    bot_active: '1',
+    paper_mode: '1',
+    paper_balance_usd: '100'
   };
 
   for (const [key, value] of Object.entries(defaults)) {
