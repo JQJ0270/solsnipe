@@ -89,14 +89,19 @@ class WalletMonitor {
     const logs = result.value?.logs || [];
     const signature = result.value?.signature;
 
-    const isDexTx = logs.some(log => [...DEX_PROGRAMS].some(prog => log.includes(prog)));
-    if (!isDexTx) return;
-
     const sourceWallet = this.trackedWallets.find(addr => logs.some(log => log.includes(addr)));
-    if (!sourceWallet) return;
+if (!sourceWallet) return;
 
-    const isBuy = logs.some(log => log.toLowerCase().includes('buy') || log.toLowerCase().includes('swap'));
-    const tradeType = isBuy ? 'buy' : 'sell';
+const isDexTx = logs.some(log => [...DEX_PROGRAMS].some(prog => log.includes(prog)));
+const hasTransfer = logs.some(log => log.includes('Transfer') || log.includes('transfer'));
+if (!isDexTx && !hasTransfer) return;
+
+const isBuy = logs.some(log =>
+  log.toLowerCase().includes('buy') ||
+  log.toLowerCase().includes('swap') ||
+  log.toLowerCase().includes('mint')
+);
+const tradeType = isBuy ? 'buy' : 'sell';
 
     console.log(`[Monitor] ${tradeType.toUpperCase()} detected from ${sourceWallet.slice(0,8)}...`);
     this.broadcast({ type: 'trade_detected', sourceWallet, tradeType, signature, timestamp: Date.now() });
