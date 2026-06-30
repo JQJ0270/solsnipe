@@ -89,8 +89,15 @@ class WalletMonitor {
     const logs = result.value?.logs || [];
     const signature = result.value?.signature;
 
+    console.log(`[DEBUG] Received tx: ${signature}, logs count: ${logs.length}`);
+    console.log(`[DEBUG] Tracked wallets: ${this.trackedWallets.join(', ')}`);
+
     const sourceWallet = this.trackedWallets.find(addr => logs.some(log => log.includes(addr)));
-if (!sourceWallet) return;
+    if (!sourceWallet) {
+      console.log(`[DEBUG] No matching wallet found in logs`);
+      return;
+    }
+    console.log(`[DEBUG] Matched wallet: ${sourceWallet}`);
 
 const isDexTx = logs.some(log => [...DEX_PROGRAMS].some(prog => log.includes(prog)));
 const hasTransfer = logs.some(log => log.includes('Transfer') || log.includes('transfer'));
