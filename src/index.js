@@ -6,7 +6,7 @@ const cors = require('cors');
 const path = require('path');
 
 const routes = require('./routes');
-const WalletMonitor = require('./monitor');
+const { handleWebhook } = require('./webhook');
 
 const app = express();
 const server = http.createServer(app);
@@ -31,21 +31,18 @@ function broadcast(data) {
   }
 }
 
+app.locals.broadcast = broadcast;
+
+app.post('/webhook/helius', (req, res) => handleWebhook(req, res, broadcast));
+
 const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${process.env.PORT || 3000}`;
 setInterval(() => { fetch(`${SELF_URL}/api/status`).catch(() => {}); }, 5 * 60 * 1000);
-
-const monitor = new WalletMonitor(broadcast);
-app.locals.monitor = monitor;
-
-if (!process.env.HELIUS_API_KEY || process.env.HELIUS_API_KEY === 'your_helius_api_key_here') {
-  console.warn('[⚠️] HELIUS_API_KEY not set');
-} else {
-  monitor.connect();
-}
 
 app.use('/api', routes);
 app.get('*', (req, res) => { res.sendFile(path.join(__dirname, '../public/index.html')); });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => { console.log(`🚀 SolSnipe running on port ${PORT}`); });
-process.on('SIGTERM', () => { monitor.disconnect(); server.close(() => process.exit(0)); });
+server.listen(PORT, () => {
+  console.log(`🚀 SolSnipe running on port ${PORT}`);
+  console.log(`📡 Webhook endpoint: ${SELF_URL}/webhook/helius`);
+});
