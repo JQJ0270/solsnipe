@@ -71,14 +71,19 @@ class WalletMonitor {
   subscribeWallet(address) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
     if (this.subscriptions.has(address)) return;
-    const id = Date.now() + Math.random();
+    const id = Math.floor(Date.now() / 1000) + Math.floor(Math.random() * 1000);
     this.subscriptions.set(address, id);
-    this.ws.send(JSON.stringify({
-      jsonrpc: '2.0', id,
+    const payload = {
+      jsonrpc: '2.0',
+      id: id,
       method: 'logsSubscribe',
-      params: [{ mentions: [address] }, { commitment: 'confirmed' }]
-    }));
-    console.log(`[Monitor] Subscribed: ${address.slice(0,8)}...`);
+      params: [
+        { mentions: [address] },
+        { commitment: 'confirmed' }
+      ]
+    };
+    this.ws.send(JSON.stringify(payload));
+    console.log(`[Monitor] Subscribed: ${address.slice(0,8)}... (id: ${id})`);
   }
 
   unsubscribeWallet(address) {
