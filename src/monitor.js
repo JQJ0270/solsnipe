@@ -43,7 +43,13 @@ class WalletMonitor {
     });
 
     this.ws.on('message', (data) => {
-      try { this.handleMessage(JSON.parse(data.toString())); } catch {}
+      try {
+        const parsed = JSON.parse(data.toString());
+        console.log('[RAW]', JSON.stringify(parsed).slice(0, 300));
+        this.handleMessage(parsed);
+      } catch (e) {
+        console.log('[RAW PARSE ERROR]', e.message);
+      }
     });
 
     this.ws.on('close', () => {
