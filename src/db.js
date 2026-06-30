@@ -1,59 +1,92 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 
-const dbPath = path.join(__dirname, '../solsnipe.db');
-const db = new sqlite3.Database(dbPath);
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes('render.com') ? { rejectUnauthorized: false } : false
+});
 
-db.run_p = (sql, params = []) => new Promise((res, rej) => db.run(sql, params, function(err) { if (err) rej(err); else res(this); }));
-db.get_p = (sql, params = []) => new Promise((res, rej) => db.get(sql, params, (err, row) => { if (err) rej(err); else res(row); }));
-db.all_p = (sql, params = []) => new Promise((res, rej) => db.all(sql, params, (err, rows) => { if (err) rej(err); else res(rows); }));
+const db = {
+  run_p: async (sql, params = []) => {
+    const result = await pool.query(sql, params);
+    return result;
+  },
+  get_p: async (sql, params = []) => {
+    const result = await pool.query(sql, params);
+    return result.rows[0] || null;
+  },
+  all_p: async (sql, params = []) => {
+    const result = await pool.query(sql, params);
+    return result.rows;
+  }
+};
 
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS wallets (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    address TEXT UNIQUE NOT NULL,
-    label TEXT,
-    enabled INTEGER DEFAULT 1,
-    created_at INTEGER DEFAULT (strftime('%s','now'))
-  )`);
+const originalRunP = db.run_p;
+const originalGetP = db.get_p;
+const originalAllP = db.all_p;
 
-  db.run(`CREATE TABLE IF NOT EXISTS trades (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_wallet TEXT NOT NULL,
-    token_mint TEXT NOT NULL,
-    token_symbol TEXT,
-    type TEXT NOT NULL,
-    amount_sol REAL,
-    copy_tx_sig TEXT,
-    status TEXT DEFAULT 'pending',
-    pnl_usd REAL,
-    entry_price REAL,
-    exit_price REAL,
-    created_at INTEGER DEFAULT (strftime('%s','now'))
-  )`);
+function convertQuery(sql) {
+  let i = 0;
+  return sql.replace(/\?/g, () => `$${++i}`);
+}
 
-  db.run(`CREATE TABLE IF NOT EXISTS paper_trades (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source_wallet TEXT NOT NULL,
-    token_mint TEXT NOT NULL,
-    token_symbol TEXT,
-    type TEXT NOT NULL,
-    amount_sol REAL,
-    amount_usd REAL,
-    entry_price REAL,
-    exit_price REAL,
-    tokens_held REAL,
-    pnl_usd REAL,
-    pnl_pct REAL,
-    status TEXT DEFAULT 'open',
-    created_at INTEGER DEFAULT (strftime('%s','now')),
-    closed_at INTEGER
-  )`);
+db.run_p = (sql, params = []) => originalRunP(convertQuery(sql), params);
+db.get_p = (sql, params = []) => originalGetP(convertQuery(sql), params);
+db.all_p = (sql, params = []) => originalAllP(convertQuery(sql), params);
 
-  db.run(`CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  )`);
+async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wallets (
+      id SERIAL PRIMARY KEY,
+      address TEXT UNIQUE NOT NULL,
+      label TEXT,
+      enabled INTEGER DEFAULT 1,
+      created_at BIGINT DEFAULT extract(epoch from now())
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS trades (
+      id SERIAL PRIMARY KEY,
+      source_wallet TEXT NOT NULL,
+      token_mint TEXT NOT NULL,
+      token_symbol TEXT,
+      type TEXT NOT NULL,
+      amount_sol REAL,
+      copy_tx_sig TEXT,
+      status TEXT DEFAULT 'pending',
+      pnl_usd REAL,
+      entry_price REAL,
+      exit_price REAL,
+      created_at BIGINT DEFAULT extract(epoch from now())
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS paper_trades (
+      id SERIAL PRIMARY KEY,
+      source_wallet TEXT NOT NULL,
+      token_mint TEXT NOT NULL,
+      token_symbol TEXT,
+      type TEXT NOT NULL,
+      amount_sol REAL,
+      amount_usd REAL,
+      entry_price REAL,
+      exit_price REAL,
+      tokens_held REAL,
+      pnl_usd REAL,
+      pnl_pct REAL,
+      status TEXT DEFAULT 'open',
+      created_at BIGINT DEFAULT extract(epoch from now()),
+      closed_at BIGINT
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )
+  `);
 
   const defaults = {
     copy_amount_sol: process.env.DEFAULT_COPY_AMOUNT_SOL || '0.25',
@@ -69,8 +102,15 @@ db.serialize(() => {
   };
 
   for (const [key, value] of Object.entries(defaults)) {
-    db.run(`INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)`, [key, value]);
+    await pool.query(
+      'INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO NOTHING',
+      [key, value]
+    );
   }
-});
+
+  console.log('[DB] PostgreSQL tables initialized');
+}
+
+initDb().catch(err => console.error('[DB] Init error:', err.message));
 
 module.exports = db;
