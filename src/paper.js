@@ -36,10 +36,11 @@ async function executePaperTrade({ sourceWallet, tradeType, tokenMint, tokenSymb
   const copyAmountUsd = copyAmountSol * solPrice;
 
   const balanceRow = await db.get_p("SELECT value FROM settings WHERE key = 'paper_balance_usd'");
-  const virtualBalance = parseFloat(balanceRow?.value || '100');
+  const virtualBalance = parseFloat(balanceRow?.value || '1000');
 
   if (virtualBalance < copyAmountUsd) {
     broadcast({ type: 'paper_skipped', reason: 'Insufficient virtual balance', sourceWallet });
+    console.log(`[Paper] Skipped — insufficient balance ($${virtualBalance.toFixed(2)})`);
     return;
   }
 
@@ -47,7 +48,6 @@ async function executePaperTrade({ sourceWallet, tradeType, tokenMint, tokenSymb
   const tokensReceived = entryPrice > 0 ? copyAmountUsd / entryPrice : 1;
   const slippage = 1 - (0.005 + Math.random() * 0.015);
   const effectiveTokens = tokensReceived * slippage;
-  const effectiveEntry = entryPrice > 0 ? copyAmountUsd / effectiveTokens : 0;
 
   let newBalance = virtualBalance;
   if (tradeType === 'buy') {
@@ -59,7 +59,7 @@ async function executePaperTrade({ sourceWallet, tradeType, tokenMint, tokenSymb
     INSERT INTO paper_trades
     (source_wallet, token_mint, token_symbol, type, amount_sol, amount_usd, entry_price, tokens_held, status)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open')
-  `, [sourceWallet, tokenMint, tokenSymbol || tokenMint.slice(0, 6), tradeType, copyAmountSol, copyAmountUsd, effectiveEntry, effectiveTokens]);
+  `, [sourceWallet, tokenMint, tokenSymbol || tokenMint.slice(0, 6), tradeType, copyAmountSol, copyAmountUsd, entryPrice, effectiveTokens]);
 
   const trade = await db.get_p('SELECT * FROM paper_trades ORDER BY id DESC LIMIT 1');
 
@@ -73,45 +73,63 @@ async function executePaperTrade({ sourceWallet, tradeType, tokenMint, tokenSymb
   console.log(`[Paper] ${tradeType.toUpperCase()} ${tokenSymbol} $${copyAmountUsd.toFixed(2)}`);
 
   const autoSellMultiplier = parseFloat(s.auto_sell_multiplier || '2');
-  if (tradeType === 'buy' && autoSellMultiplier > 0) {
-    simulateAutoSell(trade, autoSellMultiplier, broadcast);
+  if (tradeType === 'buy') {
+    scheduleAutoExit(trade, autoSellMultiplier, broadcast);
   }
 
   return trade;
 }
 
-async function simulateAutoSell(trade, multiplier, broadcast) {
-  const targetPrice = trade.entry_price * multiplier;
-  const stopLoss = trade.entry_price * 0.5;
-  let attempts = 0;
-  const maxAttempts = 2880;
+async function scheduleAutoExit(trade, multiplier, broadcast) {
+  const targetPrice = trade.entry_price > 0 ? trade.entry_price * multiplier : 0;
+  const stopLoss = trade.entry_price > 0 ? trade.entry_price * 0.5 : 0;
+  const startTime = Date.now();
+  const MAX_HOLD_TIME = 30 * 60 * 1000;
 
   const interval = setInterval(async () => {
-    attempts++;
-    if (attempts > maxAttempts) { clearInterval(interval); return; }
+    const elapsed = Date.now() - startTime;
 
     try {
-      const currentPrice = await getTokenPrice(trade.token_mint);
-      if (currentPrice <= 0) return;
+      const current = await db.get_p('SELECT * FROM paper_trades WHERE id = ? AND status = ?', [trade.id, 'open']);
+      if (!current) { clearInterval(interval); return; }
 
-      const shouldSell = currentPrice >= targetPrice || currentPrice <= stopLoss;
+      const currentPrice = await getTokenPrice(trade.token_mint);
+      const forceClose = elapsed >= MAX_HOLD_TIME;
+
+      let shouldSell = forceClose;
+      let reason = 'Time limit (30min)';
+
+      if (currentPrice > 0 && targetPrice > 0) {
+        if (currentPrice >= targetPrice) { shouldSell = true; reason = `${multiplier}x target hit`; }
+        if (currentPrice <= stopLoss) { shouldSell = true; reason = '50% stop loss'; }
+      }
+
       if (!shouldSell) return;
 
       clearInterval(interval);
 
-      const exitValue = trade.tokens_held * currentPrice;
-      const pnlUsd = exitValue - trade.amount_usd;
-      const pnlPct = ((exitValue - trade.amount_usd) / trade.amount_usd) * 100;
-      const reason = currentPrice >= targetPrice ? `${multiplier}x target hit` : '50% stop loss';
+      let exitValue = current.amount_usd;
+      let pnlUsd = 0;
+      let pnlPct = 0;
 
-      await db.run_p(`
-        UPDATE paper_trades SET status = 'closed', exit_price = ?, pnl_usd = ?, pnl_pct = ?, closed_at = strftime('%s','now')
-        WHERE id = ?
-      `, [currentPrice, pnlUsd, pnlPct, trade.id]);
+      if (currentPrice > 0 && current.tokens_held > 0) {
+        exitValue = current.tokens_held * currentPrice;
+        pnlUsd = exitValue - current.amount_usd;
+        pnlPct = (pnlUsd / current.amount_usd) * 100;
+      } else if (forceClose) {
+        exitValue = current.amount_usd * 0.9;
+        pnlUsd = exitValue - current.amount_usd;
+        pnlPct = -10;
+        reason = 'Time limit — no price data';
+      }
+
+      await db.run_p(
+        "UPDATE paper_trades SET status = 'closed', exit_price = ?, pnl_usd = ?, pnl_pct = ?, closed_at = extract(epoch from now()) WHERE id = ?",
+        [currentPrice, pnlUsd, pnlPct, trade.id]
+      );
 
       const balanceRow = await db.get_p("SELECT value FROM settings WHERE key = 'paper_balance_usd'");
-      const currentBalance = parseFloat(balanceRow?.value || '0');
-      const newBalance = currentBalance + exitValue;
+      const newBalance = parseFloat(balanceRow?.value || '0') + exitValue;
       await db.run_p("UPDATE settings SET value = ? WHERE key = 'paper_balance_usd'", [newBalance.toFixed(4)]);
 
       broadcast({
@@ -125,9 +143,9 @@ async function simulateAutoSell(trade, multiplier, broadcast) {
         message: `📄 Paper SELL ${trade.token_symbol} — ${pnlUsd >= 0 ? '+' : ''}$${pnlUsd.toFixed(2)} (${pnlPct.toFixed(1)}%) — ${reason}`
       });
 
-      console.log(`[Paper] SELL ${trade.token_symbol} PnL: $${pnlUsd.toFixed(2)} (${pnlPct.toFixed(1)}%)`);
+      console.log(`[Paper] Exit ${trade.token_symbol}: $${pnlUsd.toFixed(2)} (${pnlPct.toFixed(1)}%) — ${reason}`);
     } catch (err) {
-      console.error('[Paper] Auto-sell check failed:', err.message);
+      console.error('[Paper] Auto-exit error:', err.message);
     }
   }, 30000);
 }
@@ -137,11 +155,11 @@ async function getPaperStats() {
   const closed = trades.filter(t => t.status === 'closed');
   const open = trades.filter(t => t.status === 'open');
   const wins = closed.filter(t => t.pnl_usd > 0);
-  const totalPnl = closed.reduce((sum, t) => sum + (t.pnl_usd || 0), 0);
+  const totalPnl = closed.reduce((sum, t) => sum + (parseFloat(t.pnl_usd) || 0), 0);
   const balanceRow = await db.get_p("SELECT value FROM settings WHERE key = 'paper_balance_usd'");
 
   return {
-    virtualBalance: parseFloat(balanceRow?.value || '100'),
+    virtualBalance: parseFloat(balanceRow?.value || '1000'),
     totalPnl,
     totalTrades: trades.length,
     openTrades: open.length,
