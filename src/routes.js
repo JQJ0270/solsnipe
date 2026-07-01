@@ -78,7 +78,7 @@ router.get('/paper/trades', async (req, res) => {
 
 router.post('/paper/reset', async (req, res) => {
   await db.run_p('DELETE FROM paper_trades');
-  await db.run_p("UPDATE settings SET value = '100' WHERE key = 'paper_balance_usd'");
+  await db.run_p("UPDATE settings SET value = '1000' WHERE key = 'paper_balance_usd'");
   res.json({ success: true });
 });
 
