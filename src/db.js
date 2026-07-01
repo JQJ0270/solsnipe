@@ -98,7 +98,7 @@ async function initDb() {
     skip_sells: '0',
     bot_active: '1',
     paper_mode: '1',
-    paper_balance_usd: '100'
+    paper_balance_usd: '1000'
   };
 
   for (const [key, value] of Object.entries(defaults)) {
