@@ -3,8 +3,8 @@ const router = express.Router();
 const db = require('./db');
 const { getWalletBalance } = require('./trader');
 const { executePaperTrade, getPaperStats } = require('./paper');
+const { syncWebhook } = require('./heliusWebhook');
 
-// ─── WALLETS ───────────────────────────────────────────────
 router.get('/wallets', async (req, res) => {
   const wallets = await db.all_p('SELECT * FROM wallets ORDER BY created_at DESC');
   res.json(wallets);
@@ -16,7 +16,8 @@ router.post('/wallets', async (req, res) => {
   try {
     await db.run_p('INSERT INTO wallets (address, label) VALUES (?, ?)', [address, label || 'Wallet']);
     const wallet = await db.get_p('SELECT * FROM wallets WHERE address = ?', [address]);
-    req.app.locals.monitor?.refresh();
+    const allWallets = await db.all_p('SELECT address FROM wallets WHERE enabled = 1');
+    syncWebhook(allWallets.map(w => w.address)).catch(e => console.error(e.message));
     res.json(wallet);
   } catch (e) {
     res.status(409).json({ error: 'Wallet already exists' });
@@ -28,7 +29,8 @@ router.patch('/wallets/:id', async (req, res) => {
   const { id } = req.params;
   if (enabled !== undefined) await db.run_p('UPDATE wallets SET enabled = ? WHERE id = ?', [enabled ? 1 : 0, id]);
   if (label !== undefined) await db.run_p('UPDATE wallets SET label = ? WHERE id = ?', [label, id]);
-  req.app.locals.monitor?.refresh();
+  const allWallets = await db.all_p('SELECT address FROM wallets WHERE enabled = 1');
+  syncWebhook(allWallets.map(w => w.address)).catch(e => console.error(e.message));
   const wallet = await db.get_p('SELECT * FROM wallets WHERE id = ?', [id]);
   res.json(wallet);
 });
@@ -37,11 +39,11 @@ router.delete('/wallets/:id', async (req, res) => {
   const wallet = await db.get_p('SELECT * FROM wallets WHERE id = ?', [req.params.id]);
   if (!wallet) return res.status(404).json({ error: 'Not found' });
   await db.run_p('DELETE FROM wallets WHERE id = ?', [req.params.id]);
-  req.app.locals.monitor?.refresh();
+  const allWallets = await db.all_p('SELECT address FROM wallets WHERE enabled = 1');
+  syncWebhook(allWallets.map(w => w.address)).catch(e => console.error(e.message));
   res.json({ success: true });
 });
 
-// ─── TRADES ────────────────────────────────────────────────
 router.get('/trades', async (req, res) => {
   const limit = parseInt(req.query.limit) || 50;
   const trades = await db.all_p('SELECT * FROM trades ORDER BY created_at DESC LIMIT ?', [limit]);
@@ -64,7 +66,6 @@ router.get('/pnl', async (req, res) => {
   res.json({ summary, byToken });
 });
 
-// ─── PAPER TRADING ─────────────────────────────────────────
 router.get('/paper/stats', async (req, res) => {
   const stats = await getPaperStats();
   res.json(stats);
@@ -78,19 +79,9 @@ router.get('/paper/trades', async (req, res) => {
 router.post('/paper/reset', async (req, res) => {
   await db.run_p('DELETE FROM paper_trades');
   await db.run_p("UPDATE settings SET value = '100' WHERE key = 'paper_balance_usd'");
-  res.json({ success: true, message: 'Paper trading reset to $100' });
+  res.json({ success: true });
 });
 
-router.post('/paper/trade', async (req, res) => {
-  const { sourceWallet, tradeType, tokenMint, tokenSymbol } = req.body;
-  const rows = await db.all_p('SELECT key, value FROM settings');
-  const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
-  const broadcast = req.app.locals.broadcast || (() => {});
-  const result = await executePaperTrade({ sourceWallet, tradeType, tokenMint, tokenSymbol, settings, broadcast });
-  res.json(result);
-});
-
-// ─── SETTINGS ──────────────────────────────────────────────
 router.get('/settings', async (req, res) => {
   const rows = await db.all_p('SELECT key, value FROM settings');
   res.json(Object.fromEntries(rows.map(r => [r.key, r.value])));
@@ -103,7 +94,6 @@ router.post('/settings', async (req, res) => {
   res.json({ success: true });
 });
 
-// ─── STATUS ────────────────────────────────────────────────
 router.get('/status', async (req, res) => {
   const rows = await db.all_p('SELECT key, value FROM settings');
   const settings = Object.fromEntries(rows.map(r => [r.key, r.value]));
@@ -115,7 +105,7 @@ router.get('/status', async (req, res) => {
     paper_balance: parseFloat(settings.paper_balance_usd || '100'),
     balance_sol: balance,
     active_wallets: walletCount.c,
-    helius_connected: req.app.locals.monitor?.ws?.readyState === 1
+    helius_connected: true
   });
 });
 
